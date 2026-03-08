@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EcoCommute — Travel Impact Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Satoshi:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#08090d;--surface:#0f1117;--card:#13161f;
+      --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+      --green:#6effa0;--teal:#4dd9c0;--blue:#5ba8ff;--amber:#ffb83d;--red:#ff6b6b;
+      --text:#e9e7e2;--muted:#6b6f7c;--sub:#9b9fac;
+      --radius:16px;--radius-lg:24px;
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Satoshi',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    .bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 70% 50% at 20% 10%,rgba(110,255,160,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(91,168,255,.06) 0%,transparent 55%)}
+    .noise{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+    .wrapper{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+    header{padding:16px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);backdrop-filter:blur(12px);background:rgba(8,9,13,.6);position:sticky;top:0;z-index:100}
+    .logo{font-family:'Clash Display',sans-serif;font-size:1.2rem;font-weight:700;letter-spacing:-.5px;display:flex;align-items:center;gap:10px}
+    .logo-dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--teal));box-shadow:0 0 12px rgba(110,255,160,.6)}
+    .step-indicator{display:flex;align-items:center;gap:6px}
+    .step{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;color:var(--muted);transition:all .3s}
+    .step.active{border-color:var(--green);background:rgba(110,255,160,.1);color:var(--green);box-shadow:0 0 12px rgba(110,255,160,.2)}
+    .step.done{border-color:rgba(110,255,160,.4);background:rgba(110,255,160,.08);color:rgba(110,255,160,.7)}
+    .step-line{width:16px;height:1.5px;background:var(--border)}
+    main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 24px}
+    .panel{width:100%;max-width:780px;animation:fadeUp .5s ease both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+    .welcome-hero{text-align:center;padding:56px 40px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);position:relative;overflow:hidden}
+    .welcome-hero::before{content:'';position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(110,255,160,.08),transparent 70%);pointer-events:none}
+    .welcome-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:100px;background:rgba(110,255,160,.08);border:1px solid rgba(110,255,160,.2);font-size:.78rem;font-weight:500;color:var(--green);letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px}
+    .welcome-title{font-family:'Clash Display',sans-serif;font-size:clamp(2.2rem,5vw,3.6rem);font-weight:700;line-height:1.05;letter-spacing:-1.5px;margin-bottom:14px}
+    .welcome-title span{background:linear-gradient(130deg,var(--green) 0%,var(--teal) 50%,var(--blue) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .welcome-sub{color:var(--sub);font-size:1rem;max-width:420px;margin:0 auto 36px;line-height:1.6}
+    .features{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:36px}
+    .feat{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);font-size:.82rem;color:var(--sub)}
+    .name-row{display:flex;gap:12px;max-width:420px;margin:0 auto}
+    .input-wrap{flex:1;position:relative}
+    .input-wrap input{width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--border);border-radius:var(--radius);padding:13px 18px 13px 44px;color:var(--text);font-family:'Satoshi',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,background .2s}
+    .input-wrap input:focus{border-color:rgba(110,255,160,.4);background:rgba(255,255,255,.07)}
+    .input-wrap input::placeholder{color:var(--muted)}
+    .input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:1.1rem;pointer-events:none}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-family:'Satoshi',sans-serif;font-weight:600;border-radius:var(--radius);transition:all .2s;text-decoration:none;white-space:nowrap}
+    .btn-primary{background:linear-gradient(135deg,var(--green),var(--teal));color:#08090d;padding:13px 26px;font-size:.95rem}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(110,255,160,.25)}
+    .btn-primary:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+    .btn-secondary{background:rgba(255,255,255,.05);border:1.5px solid var(--border);color:var(--sub);padding:12px 20px;font-size:.9rem}
+    .btn-secondary:hover{border-color:var(--border2);color:var(--text);background:rgba(255,255,255,.08)}
+    .btn-danger-ghost{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.2);color:var(--red);padding:7px 14px;font-size:.78rem;border-radius:10px;cursor:pointer}
+    .btn-danger-ghost:hover{background:rgba(255,107,107,.15)}
+    .btn-add-seg{background:rgba(110,255,160,.07);border:1.5px dashed rgba(110,255,160,.25);color:var(--green);padding:13px 20px;font-size:.9rem;width:100%;border-radius:var(--radius)}
+    .btn-add-seg:hover{background:rgba(110,255,160,.12);border-style:solid}
+    .btn-add-seg:disabled{opacity:.3;cursor:not-allowed}
+    .btn-survey{background:linear-gradient(135deg,var(--blue),var(--teal));color:#08090d;padding:13px 26px;font-size:.95rem}
+    .btn-survey:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(91,168,255,.25)}
+    .btn-full{width:100%}
+    .builder-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px}
+    .section-title{font-family:'Clash Display',sans-serif;font-size:1.6rem;font-weight:600;letter-spacing:-.5px;margin-bottom:4px}
+    .section-sub{color:var(--sub);font-size:.88rem}
+    .user-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:100px;background:rgba(91,168,255,.08);border:1px solid rgba(91,168,255,.2);font-size:.78rem;color:var(--blue)}
+    .segment-chain{display:flex;flex-direction:column;gap:0;margin-bottom:20px}
+    .seg-row{display:flex;align-items:stretch;gap:0}
+    .seg-line-col{display:flex;flex-direction:column;align-items:center;width:40px;flex-shrink:0}
+    .seg-bubble{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,rgba(110,255,160,.2),rgba(77,217,192,.2));border:1.5px solid rgba(110,255,160,.4);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--green);flex-shrink:0;margin-top:16px}
+    .seg-connector{flex:1;width:2px;background:linear-gradient(to bottom,rgba(110,255,160,.3),rgba(77,217,192,.1));margin:4px 0}
+    .seg-card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:15px 18px;margin:6px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:border-color .2s}
+    .seg-card:hover{border-color:var(--border2)}
+    .seg-info{flex:1}
+    .seg-mode-label{font-size:1rem;font-weight:500;margin-bottom:6px}
+    .seg-badges{display:flex;gap:6px;flex-wrap:wrap}
+    .badge{padding:3px 10px;border-radius:100px;font-size:.75rem;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--sub)}
+    .badge.green{background:rgba(110,255,160,.08);border-color:rgba(110,255,160,.2);color:var(--green)}
+    .badge.blue{background:rgba(91,168,255,.08);border-color:rgba(91,168,255,.2);color:var(--blue)}
+    .badge.teal{background:rgba(77,217,192,.08);border-color:rgba(77,217,192,.2);color:var(--teal)}
+    .badge.amber{background:rgba(255,184,61,.08);border-color:rgba(255,184,61,.2);color:var(--amber)}
+    .badge.red{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2);color:var(--red)}
+    .add-form{background:rgba(255,255,255,.02);border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:22px;margin-bottom:22px}
+    .add-form-title{font-size:.78rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px;font-weight:600}
+    .form-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+    .form-group{display:flex;flex-direction:column;gap:6px}
+    .form-group label{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+    .form-group select,.form-group input{background:rgba(255,255,255,.05);border:1.5px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font-family:'Satoshi',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s,background .2s;appearance:none}
+    .form-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b6f7c' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+    .form-group select:focus,.form-group input:focus{border-color:rgba(110,255,160,.4);background:rgba(255,255,255,.07)}
+    .form-group select option{background:#13161f}
+    .divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+    .action-row{display:flex;gap:12px;align-items:center}
+    .empty-state{text-align:center;padding:28px;color:var(--muted);border:1.5px dashed var(--border);border-radius:var(--radius);margin-bottom:20px;font-size:.9rem}
+    .empty-state .empty-icon{font-size:2.2rem;margin-bottom:8px}
+    .result-hero{text-align:center;margin-bottom:28px}
+    .result-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:100px;background:rgba(110,255,160,.08);border:1px solid rgba(110,255,160,.2);font-size:.78rem;font-weight:500;color:var(--green);letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px}
+    .result-title{font-family:'Clash Display',sans-serif;font-size:clamp(1.7rem,4vw,2.4rem);font-weight:700;letter-spacing:-1px;margin-bottom:6px}
+    .result-sub{color:var(--sub);font-size:.9rem}
+    .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 14px;text-align:center;transition:transform .2s,border-color .2s;animation:fadeUp .5s ease both}
+    .stat-card:hover{transform:translateY(-3px);border-color:var(--border2)}
+    .stat-icon{font-size:1.4rem;margin-bottom:8px}
+    .stat-value{font-family:'Clash Display',sans-serif;font-size:1.8rem;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:4px}
+    .stat-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .stat-card.c-green .stat-value{color:var(--green)}
+    .stat-card.c-blue .stat-value{color:var(--blue)}
+    .stat-card.c-amber .stat-value{color:var(--amber)}
+    .stat-card.c-red .stat-value{color:var(--red)}
+    .excel-notice{display:flex;align-items:center;gap:12px;background:rgba(110,255,160,.05);border:1px solid rgba(110,255,160,.15);border-radius:var(--radius);padding:13px 16px;margin-bottom:18px;font-size:.85rem;color:var(--sub)}
+    .excel-notice strong{color:var(--green)}
+    .breakdown-title{font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+    .survey-cta{background:linear-gradient(135deg,rgba(91,168,255,.1),rgba(77,217,192,.08));border:1px solid rgba(91,168,255,.2);border-radius:var(--radius);padding:18px;margin-bottom:18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .survey-cta-text strong{color:var(--blue);display:block;font-size:1rem;margin-bottom:3px}
+    .survey-cta-text span{color:var(--sub);font-size:.85rem}
+    .block-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:24px 0}
+    .block-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+    .block-card:hover{border-color:rgba(110,255,160,.3);transform:translateY(-2px)}
+    .block-num{font-family:'Clash Display',sans-serif;font-size:2.4rem;font-weight:700;color:var(--green);line-height:1}
+    .block-label{font-size:.8rem;color:var(--sub);margin-top:6px;text-transform:uppercase;letter-spacing:.5px}
+    .block-scenarios{font-size:.75rem;color:var(--muted);margin-top:4px}
+    .survey-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .scenario-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:100px;background:rgba(91,168,255,.1);border:1px solid rgba(91,168,255,.25);font-size:.8rem;color:var(--blue)}
+    .progress-bar-wrap{height:4px;background:rgba(255,255,255,.07);border-radius:2px;margin-bottom:20px;overflow:hidden}
+    .progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--teal));border-radius:2px;transition:width .4s ease}
+    .table-wrapper{overflow-x:auto;margin-bottom:18px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card)}
+    table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:560px}
+    th,td{border:1px solid var(--border);padding:10px;text-align:center;vertical-align:middle}
+    th{background:rgba(255,255,255,.04);font-weight:600;color:var(--sub);font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}
+    td{color:var(--text)}
+    .attribute{text-align:left!important;background:rgba(255,255,255,.03);font-weight:600;color:var(--sub);font-size:.8rem}
+    .mode-chain{font-family:monospace;font-size:.8rem;color:var(--teal);background:rgba(77,217,192,.08);padding:6px 10px;border-radius:8px;word-break:break-word}
+    .your-journey-cell{text-align:left!important;color:var(--green);font-size:.83rem;font-weight:500;background:rgba(110,255,160,.04)}
+    .choice-row td{padding:12px}
+    .radio-label{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+    .radio-label input{width:18px;height:18px;cursor:pointer;accent-color:var(--green)}
+    .radio-label span{font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700;color:var(--text)}
+    .latent-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px}
+    .latent-wrap h3{font-family:'Clash Display',sans-serif;font-size:1.2rem;margin-bottom:18px;color:var(--text)}
+    .question-item{margin:16px 0;padding:14px 16px;background:rgba(255,255,255,.02);border-radius:12px;border:1px solid var(--border)}
+    .question-text{font-size:.9rem;font-weight:600;display:block;margin-bottom:10px;color:var(--text)}
+    .likert-scale{display:flex;justify-content:space-between;max-width:380px;gap:6px;flex-wrap:wrap}
+    .likert-scale label{flex:1;text-align:center;min-width:42px;padding:8px 4px;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:.85rem;color:var(--sub);transition:all .15s;user-select:none}
+    .likert-scale label:has(input:checked){border-color:rgba(110,255,160,.4);background:rgba(110,255,160,.1);color:var(--green)}
+    .likert-scale input{display:none}
+    .demo-select{background:rgba(255,255,255,.05);border:1.5px solid var(--border);border-radius:12px;padding:10px 14px;color:var(--text);font-family:'Satoshi',sans-serif;font-size:.9rem;outline:none;width:100%;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b6f7c' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+    .demo-select:focus{border-color:rgba(110,255,160,.4);background:rgba(255,255,255,.07)}
+    .demo-select option{background:#13161f}
+    .checkbox-group{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+    .checkbox-group label{display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--sub);font-size:.9rem}
+    .checkbox-group input{width:16px;height:16px;accent-color:var(--green)}
+    .submit-error{display:none;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.4);border-radius:12px;padding:14px 18px;margin-bottom:14px;color:var(--red);font-size:.9rem;font-weight:500}
+    /* ── Confirm panel ── */
+    .confirm-panel{background:rgba(110,255,160,.06);border:1px solid rgba(110,255,160,.2);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px}
+    .confirm-title{font-size:.92rem;color:var(--sub);margin-bottom:14px;line-height:1.5}
+    .confirm-title strong{color:var(--green)}
+    .confirm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+    .confirm-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+    .conf-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px;font-weight:600}
+    .conf-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.85rem}
+    .conf-yours{color:var(--sub)}
+    .conf-arrow{font-size:.78rem;font-weight:700;padding:2px 7px;border-radius:100px}
+    .conf-better{background:rgba(110,255,160,.15);color:var(--green)}
+    .conf-worse{background:rgba(255,107,107,.15);color:var(--red)}
+    .conf-chosen{color:var(--text);font-weight:600}
+    .confirm-modes{font-size:.83rem;color:var(--sub);line-height:1.7}
+    .confirm-modes strong{color:var(--text)}
+    .admin-row{display:flex;gap:10px;justify-content:center;margin-top:14px}
+    .btn-ghost-admin{background:rgba(110,255,160,.06);border:1px dashed rgba(110,255,160,.2);color:var(--muted);padding:9px 18px;font-size:.8rem;border-radius:10px;cursor:pointer;font-family:'Satoshi',sans-serif;font-weight:600;transition:all .2s}
+    .btn-ghost-admin:hover{color:var(--green);border-color:rgba(110,255,160,.4)}
+    @media(max-width:640px){
+      header{padding:12px 18px}main{padding:20px 14px}.welcome-hero{padding:36px 18px}
+      .stat-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr 1fr}
+      .action-row{flex-direction:column}.action-row .btn{width:100%}
+      .name-row{flex-direction:column}.block-grid{grid-template-columns:1fr 1fr}
+      table,th,td{font-size:.78rem;padding:6px 4px}
+    }
+  </style>
+</head>
+<body>
+<div class="bg-canvas"></div>
+<div class="noise"></div>
+<div class="wrapper">
+  <header>
+    <div class="logo"><div class="logo-dot"></div>EcoCommute</div>
+    <div class="step-indicator">
+      <div class="step active" id="step1">1</div><div class="step-line"></div>
+      <div class="step" id="step2">2</div><div class="step-line"></div>
+      <div class="step" id="step3">3</div><div class="step-line"></div>
+      <div class="step" id="step4">4</div><div class="step-line"></div>
+      <div class="step" id="step5">5</div>
+    </div>
+  </header>
+  <main>
+
+    <!-- SCREEN 1: WELCOME -->
+    <div class="panel" id="screen-welcome">
+      <div class="welcome-hero">
+        <div class="welcome-badge">🌿 Carbon-aware travel</div>
+        <h1 class="welcome-title">Track Your<br><span>Commute Impact</span></h1>
+        <p class="welcome-sub">Map every leg of your journey and instantly see your carbon footprint, calories, cost &amp; time. Then compare with metro access scenarios.</p>
+        <div class="features">
+          <div class="feat">🌫 CO₂ Emissions</div>
+          <div class="feat">🔥 Calories Burnt</div>
+          <div class="feat">💸 Travel Cost</div>
+          <div class="feat">🚇 Metro Scenarios</div>
+          <div class="feat">📊 Excel Export</div>
+        </div>
+        <div class="name-row">
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="user-name" placeholder="Enter your name to begin…" autocomplete="off"/>
+          </div>
+          <button class="btn btn-primary" id="btn-start" type="button" disabled>Begin →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: BUILDER -->
+    <div class="panel" id="screen-builder" style="display:none">
+      <div class="builder-header">
+        <div>
+          <div class="section-title">Build Your Route</div>
+          <div class="section-sub">Add each transport segment in order.</div>
+        </div>
+        <div class="user-pill">👤 <span id="disp-name"></span></div>
+      </div>
+      <div id="segment-chain" class="segment-chain"></div>
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">🗺️</div>
+        <div>No segments yet — add your first leg below</div>
+      </div>
+      <div class="add-form">
+        <div class="add-form-title">➕ Add Next Segment</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Mode of Transport</label>
+            <select id="sel-mode"><option value="">— Select mode —</option></select>
+          </div>
+          <div class="form-group">
+            <label>Travel Time (min)</label>
+            <input type="number" id="inp-time" min="1" placeholder="e.g. 15"/>
+          </div>
+          <div class="form-group">
+            <label>Wait Time (min)</label>
+            <input type="number" id="inp-wait" min="0" placeholder="0" value="0"/>
+          </div>
+          <div class="form-group">
+            <label>Cost (₹)</label>
+            <input type="number" id="inp-cost" min="0" placeholder="0 if free"/>
+          </div>
+        </div>
+        <button class="btn btn-add-seg" id="btn-add" type="button" disabled>+ Add Segment</button>
+      </div>
+      <hr class="divider">
+      <div class="action-row">
+        <button class="btn btn-secondary" id="btn-back-welcome" type="button">← Back</button>
+        <button class="btn btn-primary" id="btn-finish" type="button" style="flex:1" disabled>Calculate Journey ↓</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: RESULT -->
+    <div class="panel" id="screen-result" style="display:none">
+      <div class="result-hero">
+        <div class="result-badge">✅ Journey Analysed</div>
+        <div class="result-title">Here's your impact,<br><span id="result-name" style="color:var(--green)"></span>!</div>
+        <div class="result-sub" id="result-sub"></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card c-blue"><div class="stat-icon">⏱</div><div class="stat-value" id="res-time">—</div><div class="stat-label">Total Minutes</div></div>
+        <div class="stat-card c-amber"><div class="stat-icon">💸</div><div class="stat-value" id="res-cost">—</div><div class="stat-label">Total Cost (₹)</div></div>
+        <div class="stat-card c-red"><div class="stat-icon">🌫</div><div class="stat-value" id="res-co2">—</div><div class="stat-label">CO₂ Emitted (g)</div></div>
+        <div class="stat-card c-green"><div class="stat-icon">🔥</div><div class="stat-value" id="res-cal">—</div><div class="stat-label">Calories Burnt</div></div>
+      </div>
+      <div class="excel-notice">
+        <span style="font-size:1.3rem">📥</span>
+        <div>Excel file downloaded! <strong>Your tracker log is saved. Complete the survey to download the unified data file.</strong></div>
+      </div>
+      <div class="survey-cta">
+        <span style="font-size:2rem">🚇</span>
+        <div class="survey-cta-text">
+          <strong>Compare with Metro Scenarios</strong>
+          <span>Choose a block and compare metro access/egress options against your journey.</span>
+        </div>
+        <button class="btn btn-survey" id="btn-go-survey" type="button">Take Survey →</button>
+      </div>
+      <div class="breakdown-title">Journey Breakdown</div>
+      <div id="result-segments" class="segment-chain" style="margin-bottom:20px"></div>
+      <hr class="divider">
+      <div class="action-row">
+        <button class="btn btn-secondary" id="btn-new" type="button">+ New Journey</button>
+        <button class="btn btn-secondary" id="btn-redownload" type="button">↓ Re-download Tracker CSV</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: BLOCK SELECTOR -->
+    <div class="panel" id="screen-block" style="display:none">
+      <div class="builder-header">
+        <div>
+          <div class="section-title">Metro Scenario Survey</div>
+          <div class="section-sub">Select your assigned block to begin the 9 stated-preference scenarios.</div>
+        </div>
+        <div class="user-pill">👤 <span id="disp-name-block"></span></div>
+      </div>
+      <div class="block-grid">
+        <div class="block-card" data-block="1"><div class="block-num">01</div><div class="block-label">Block 1</div><div class="block-scenarios">Scenarios: 1, 2, 5, 11, 12, 19, 20, 26, 28</div></div>
+        <div class="block-card" data-block="2"><div class="block-num">02</div><div class="block-label">Block 2</div><div class="block-scenarios">Scenarios: 3, 16, 17, 22, 23, 25, 33, 35, 36</div></div>
+        <div class="block-card" data-block="3"><div class="block-num">03</div><div class="block-label">Block 3</div><div class="block-scenarios">Scenarios: 6, 7, 8, 9, 10, 14, 21, 27, 32</div></div>
+        <div class="block-card" data-block="4"><div class="block-num">04</div><div class="block-label">Block 4</div><div class="block-scenarios">Scenarios: 4, 13, 15, 18, 24, 29, 30, 31, 34</div></div>
+      </div>
+      <hr class="divider">
+      <button class="btn btn-secondary" id="btn-back-result" type="button">← Back to Results</button>
+    </div>
+
+    <!-- SCREEN 5: SCENARIO SURVEY -->
+    <div class="panel" id="screen-survey" style="display:none">
+      <div class="survey-header">
+        <div class="scenario-badge">🚇 <span id="scenarioTitle">Scenario …</span></div>
+        <div style="font-size:.82rem;color:var(--muted)" id="scenario-progress"></div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="table-wrapper">
+        <table id="choiceTable">
+          <thead><tr><th>Attribute</th><th>Option A</th><th>Option B</th><th>Option C</th><th>Option D</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="confirmPanel" class="confirm-panel" style="display:none"></div>
+      <div class="action-row">
+        <button class="btn btn-secondary" id="btn-back-block" type="button">← Blocks</button>
+        <button class="btn btn-primary" id="nextBtn" type="button" style="flex:1">Submit Choice →</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: LATENT + DEMOGRAPHICS -->
+    <div class="panel" id="screen-latent" style="display:none">
+      <div class="builder-header">
+        <div>
+          <div class="section-title">Final Questions</div>
+          <div class="section-sub">Your travel attitude and background — almost done!</div>
+        </div>
+      </div>
+      <div class="latent-wrap">
+        <h3>Travel Attitude Statements</h3>
+        <p style="font-size:.85rem;color:var(--sub);margin-bottom:16px"><strong style="color:var(--text)">1 = Strongly Disagree</strong> &nbsp;·&nbsp; <strong style="color:var(--text)">5 = Strongly Agree</strong></p>
+        <div id="latent-questions"></div>
+      </div>
+      <div class="latent-wrap">
+        <h3>About You</h3>
+        <div class="question-item">
+          <span class="question-text">Age Group *</span>
+          <select name="age_group" class="demo-select"><option value="">-- Select --</option><option>18-24</option><option>25-44</option><option>45-64</option><option>65+</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Gender *</span>
+          <select name="gender" class="demo-select"><option value="">-- Select --</option><option>Male</option><option>Female</option><option>Other / Prefer not to say</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Occupation *</span>
+          <select name="occupation" class="demo-select"><option value="">-- Select --</option><option value="Govt_service">Government Service</option><option value="Private_service">Private Service</option><option value="Business">Business / Self-employed</option><option value="Retired">Retired</option><option value="Student">Student</option><option value="Unemployed">Unemployed</option><option value="Homemaker">Homemaker</option><option value="Other">Other</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Highest Education *</span>
+          <select name="education" class="demo-select"><option value="">-- Select --</option><option value="Below_10th">Below 10th</option><option value="10th">10th (Matric)</option><option value="12th_Diploma">12th / Diploma / ITI</option><option value="Graduate">Graduate</option><option value="Post_graduate">Post Graduate or Above</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Monthly Household Income (₹) *</span>
+          <select name="income" class="demo-select"><option value="">-- Select --</option><option value="lt10000">Less than ₹10,000</option><option value="10000-25000">₹10,000 – ₹25,000</option><option value="25000-50000">₹25,000 – ₹50,000</option><option value="50000-100000">₹50,000 – ₹1,00,000</option><option value="gt100000">More than ₹1,00,000</option><option value="Prefer_not">Prefer not to say</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Driving License? *</span>
+          <select name="license" class="demo-select"><option value="">-- Select --</option><option>Yes</option><option>No</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Household size *</span>
+          <select name="hh_size" class="demo-select"><option value="">-- Select --</option><option value="1">1 person</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5+">5 or more</option></select>
+        </div>
+        <div class="question-item">
+          <span class="question-text">Vehicles in household?</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="vehicles" value="car"> Car / Four-wheeler</label>
+            <label><input type="checkbox" name="vehicles" value="twowheeler"> Two-wheeler</label>
+            <label><input type="checkbox" name="vehicles" value="bicycle"> Bicycle</label>
+            <label><input type="checkbox" name="vehicles" value="none"> None</label>
+          </div>
+        </div>
+      </div>
+      <div class="submit-error" id="submit-error"></div>
+      <button class="btn btn-primary btn-full" id="submitBtn" type="button">Submit &amp; Download Response →</button>
+      <div class="admin-row">
+        <button class="btn-ghost-admin" id="exportAllBtn" type="button">⬇ Export All Responses (Admin)</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+<script>
+const scenarios = [{"scenario":1,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"BUS","lm2":"NONE","time":17.0,"cost":17.73,"calories":81.31,"co2":256.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":29.0,"cost":32.0,"calories":56.36,"co2":392.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"C":{"fm1":"2W","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":12.0,"cost":52.0,"calories":22.08,"co2":366.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"NONE","time":48.61,"cost":0.0,"calories":297.99,"co2":0.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":2,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":40.9,"cost":24.38,"calories":116.99,"co2":383.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":14.67,"cost":39.33,"calories":17.79,"co2":336.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":28.44,"cost":37.25,"calories":83.03,"co2":224.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":21.44,"cost":79.2,"calories":81.49,"co2":496.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":3,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.57,"cost":10.65,"calories":298.46,"co2":243.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":17.33,"cost":16.67,"calories":23.69,"co2":192.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":16.0,"cost":41.5,"calories":33.11,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":47.17,"cost":61.5,"calories":168.22,"co2":276.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":4,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":33.6,"cost":35.1,"calories":77.69,"co2":462.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":27.0,"cost":54.0,"calories":22.08,"co2":384.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"NONE","time":58.87,"cost":35.1,"calories":281.53,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":14.83,"cost":53.92,"calories":46.6,"co2":330.67,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":5,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":35.5,"cost":27.6,"calories":121.97,"co2":456.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":22.0,"cost":12.0,"calories":22.08,"co2":324.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"BUS","lm1":"E-SCOOTER","lm2":"UBER","time":25.68,"cost":49.93,"calories":100.1,"co2":488.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":34.5,"cost":18.1,"calories":141.57,"co2":210.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":6,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":26.4,"calories":43.89,"co2":466.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":40.3,"cost":68.25,"calories":150.1,"co2":468.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":21.5,"cost":80.45,"calories":71.11,"co2":536.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":16.89,"cost":6.0,"calories":90.66,"co2":123.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":7,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"AUTO","time":40.12,"cost":72.6,"calories":103.77,"co2":412.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.44,"cost":54.0,"calories":67.41,"co2":553.5,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":26.44,"cost":15.6,"calories":153.49,"co2":210.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":26.9,"cost":14.65,"calories":50.4,"co2":359.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":8,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":35.44,"cost":24.83,"calories":197.25,"co2":149.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"BUS","time":24.1,"cost":31.05,"calories":75.89,"co2":572.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":32.0,"cost":26.0,"calories":31.28,"co2":601.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":30.44,"cost":40.0,"calories":58.21,"co2":276.5,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"}}},{"scenario":9,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":21.89,"cost":6.0,"calories":90.66,"co2":123.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":25.2,"cost":109.05,"calories":68.71,"co2":599.7,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"UBER","lm2":"NONE","time":33.9,"cost":58.65,"calories":54.08,"co2":489.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":8.67,"cost":27.33,"calories":36.35,"co2":246.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":10,"block":2,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"E-SCOOTER","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"NONE","time":23.89,"cost":18.0,"calories":134.14,"co2":300.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":12.67,"cost":38.13,"calories":31.47,"co2":346.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":23.94,"cost":18.0,"calories":64.65,"co2":420.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":11,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":18.0,"cost":49.2,"calories":36.16,"co2":435.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"BUS","lm2":"NONE","time":53.67,"cost":12.0,"calories":277.5,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":20.89,"cost":2.0,"calories":88.82,"co2":46.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":23.47,"cost":76.03,"calories":45.81,"co2":399.8,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":12,"block":4,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"AUTO","lm2":"NONE","time":45.0,"cost":16.67,"calories":261.55,"co2":106.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":5.0,"cost":26.0,"calories":9.2,"co2":169.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.61,"cost":6.0,"calories":309.03,"co2":174.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":37.0,"cost":17.0,"calories":83.38,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":13,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":20.67,"cost":32.83,"calories":41.7,"co2":381.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":53.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":19.0,"cost":25.73,"calories":84.99,"co2":386.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":25.27,"cost":22.43,"calories":61.36,"co2":362.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":14,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":27.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":30.1,"cost":18.97,"calories":65.67,"co2":232.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"E-SCOOTER","time":61.17,"cost":15.6,"calories":366.34,"co2":210.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":9.94,"cost":24.0,"calories":48.09,"co2":123.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":15,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":48.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"WALK","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":22.94,"cost":56.0,"calories":72.01,"co2":494.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":30.78,"cost":24.0,"calories":175.8,"co2":123.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":23.47,"cost":28.93,"calories":32.94,"co2":465.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":16,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":28.2,"cost":83.1,"calories":37.16,"co2":418.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"AUTO","time":31.44,"cost":40.6,"calories":162.69,"co2":370.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":38.0,"cost":21.23,"calories":165.9,"co2":140.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":16.6,"cost":15.1,"calories":43.41,"co2":394.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":17,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"UBER","time":25.04,"cost":43.1,"calories":79.54,"co2":346.9,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":32.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"AUTO","lm2":"NONE","time":26.17,"cost":48.93,"calories":123.19,"co2":423.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"WALK","time":34.28,"cost":11.87,"calories":207.25,"co2":70.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":18,"block":2,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":27.89,"cost":18.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":24.33,"cost":56.97,"calories":47.4,"co2":357.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":16.2,"cost":107.1,"calories":42.68,"co2":541.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"UBER","time":22.4,"cost":70.13,"calories":103.49,"co2":481.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":19,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":22.89,"cost":72.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":38.89,"cost":7.5,"calories":177.09,"co2":0.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":15.94,"cost":29.0,"calories":59.13,"co2":276.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":30.5,"cost":21.6,"calories":121.97,"co2":348.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":20,"block":4,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":24.27,"cost":46.93,"calories":25.21,"co2":350.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":49.33,"cost":24.83,"calories":282.39,"co2":149.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":34.89,"cost":6.0,"calories":96.18,"co2":138.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"UBER","lm2":"NONE","time":25.5,"cost":63.6,"calories":121.97,"co2":456.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":21,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":25.5,"cost":15.87,"calories":44.34,"co2":162.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":24.57,"cost":35.98,"calories":75.71,"co2":443.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"AUTO","time":29.42,"cost":74.75,"calories":118.12,"co2":464.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":37.42,"cost":15.0,"calories":85.93,"co2":384.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"}}},{"scenario":22,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":14.33,"cost":50.17,"calories":59.64,"co2":349.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":21.09,"cost":35.1,"calories":111.26,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":32.4,"calories":43.89,"co2":574.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":28.6,"cost":57.1,"calories":47.09,"co2":482.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":23,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":20.67,"cost":48.83,"calories":32.5,"co2":272.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"WALK","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":35.42,"cost":15.0,"calories":91.45,"co2":399.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":19.13,"cost":65.32,"calories":55.51,"co2":358.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"}}},{"scenario":24,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":25.8,"cost":102.65,"calories":57.58,"co2":578.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":13.27,"cost":42.93,"calories":23.37,"co2":273.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":30.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":25.83,"cost":25.0,"calories":136.91,"co2":160.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":25,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":14.41,"cost":16.93,"calories":64.47,"co2":219.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":51.78,"cost":18.0,"calories":186.84,"co2":369.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":16.6,"cost":91.5,"calories":55.65,"co2":513.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":36.78,"cost":4.0,"calories":177.64,"co2":92.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":26,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":31.5,"cost":17.6,"calories":114.61,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":30.5,"cost":109.25,"calories":57.03,"co2":593.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"BUS","time":26.83,"cost":6.0,"calories":138.75,"co2":174.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":21.67,"cost":39.63,"calories":112.38,"co2":208.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":27,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":27.67,"cost":45.33,"calories":23.31,"co2":459.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"BUS","lm2":"NONE","time":11.2,"cost":39.1,"calories":33.48,"co2":288.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":50.44,"cost":24.83,"calories":197.25,"co2":149.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":52.67,"cost":6.0,"calories":266.46,"co2":138.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":28,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":34.57,"cost":25.98,"calories":75.71,"co2":443.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":32.94,"cost":13.5,"calories":145.56,"co2":174.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":14.67,"cost":31.33,"calories":38.19,"co2":323.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":57.67,"cost":6.0,"calories":266.46,"co2":138.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":29,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":13.94,"cost":2.0,"calories":46.25,"co2":46.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"WALK","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":24.86,"cost":37.5,"calories":120.22,"co2":240.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":37.9,"cost":38.65,"calories":92.04,"co2":543.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"BUS","time":22.7,"cost":57.65,"calories":73.31,"co2":552.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":30,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"BUS","time":21.54,"cost":13.1,"calories":82.3,"co2":336.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.17,"cost":56.5,"calories":106.92,"co2":276.75,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":26.0,"cost":30.0,"calories":38.64,"co2":717.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":25.67,"cost":38.57,"calories":100.93,"co2":289.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":31,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"UBER","time":37.18,"cost":56.4,"calories":199.81,"co2":341.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"NONE","time":30.54,"cost":7.1,"calories":71.26,"co2":162.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"BUS","time":19.67,"cost":52.03,"calories":48.02,"co2":391.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":28.0,"cost":90.0,"calories":33.12,"co2":738.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":32,"block":4,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":14.0,"cost":14.0,"calories":25.76,"co2":394.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":32.0,"cost":31.73,"calories":90.51,"co2":509.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"WALK","time":22.3,"cost":64.52,"calories":76.15,"co2":328.3,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":35.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":33,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"UBER","time":33.67,"cost":91.25,"calories":116.74,"co2":500.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":26.0,"cost":55.2,"calories":41.68,"co2":558.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"NONE","time":16.33,"cost":26.4,"calories":90.28,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":25.2,"cost":48.83,"calories":100.07,"co2":312.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"}}},{"scenario":34,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":23.87,"cost":67.23,"calories":46.54,"co2":380.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":33.33,"cost":24.17,"calories":98.08,"co2":106.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.17,"cost":60.0,"calories":81.79,"co2":399.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":26.5,"cost":65.25,"calories":89.47,"co2":524.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"}}},{"scenario":35,"block":3,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":25.94,"cost":29.0,"calories":59.13,"co2":252.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"BUS","time":35.24,"cost":16.93,"calories":192.18,"co2":219.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":13.0,"cost":24.0,"calories":54.52,"co2":423.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":27.47,"cost":85.98,"calories":51.44,"co2":471.63,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":36,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":10.53,"cost":47.77,"calories":42.45,"co2":272.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":24.5,"cost":50.98,"calories":114.42,"co2":364.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.44,"cost":42.0,"calories":61.89,"co2":322.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"AUTO","time":31.81,"cost":37.5,"calories":162.79,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}}];
+
+const $ = id => document.getElementById(id);
+const ALL_SCREENS = ["screen-welcome","screen-builder","screen-result","screen-block","screen-survey","screen-latent"];
+
+function showScreen(id) {
+  ALL_SCREENS.forEach(function(s) { var el=$(s); if(el) el.style.display="none"; });
+  var t=$(id);
+  if(t){ t.style.display=""; t.style.animation="none"; setTimeout(function(){ t.style.animation=""; },10); }
+  window.scrollTo({top:0,behavior:"smooth"});
+  var stepMap = {"screen-welcome":1,"screen-builder":2,"screen-result":3,"screen-block":4,"screen-survey":4,"screen-latent":5};
+  var active = stepMap[id]||0;
+  [1,2,3,4,5].forEach(function(n) {
+    var el=$("step"+n);
+    if(!el) return;
+    el.className = "step" + (n < active ? " done" : n===active ? " active" : "");
+  });
+}
+
+// Transport modes
+const MODES = {
+  walking:    {label:"🚶 Walking",        co2:0,  cal:6.13, speedKmh:4.32},
+  cycling:    {label:"🚴 Cycling",        co2:0,  cal:6.13, speedKmh:12},
+  escooter:   {label:"⚡ E-Scooter",      co2:30, cal:4.90, speedKmh:18},
+  auto:       {label:"🛺 Shared Auto",    co2:32, cal:1.84, speedKmh:18},
+  car:        {label:"🚗 Car (Ola/Uber)", co2:41, cal:1.84, speedKmh:20},
+  twowheeler: {label:"🏍️ Two-Wheeler",   co2:23, cal:1.84, speedKmh:30},
+  bus:        {label:"🚌 Bus",            co2:29, cal:1.84, speedKmh:15},
+};
+
+// Latent questions
+const LATENT_QS = [
+  "I like trying new ways of doing things before most other people do.",
+  "I am open to trying new travel options when they become available.",
+  "I usually adapt quickly when new services or technologies are introduced.",
+  "During my trips, I enjoy being able to see and observe people around me.",
+  "Travelling gives me opportunities to notice and experience what is happening around me.",
+  "My travel experience makes me feel more connected with the surrounding community.",
+  "Some forms of travel can be enjoyable experiences for me.",
+  "I prefer travel options that make the journey feel pleasant.",
+  "The experience of travelling can sometimes be interesting and engaging for me.",
+];
+
+// Block mapping
+const blockToScenarios = {
+  1:[1,2,5,11,12,19,20,26,28],
+  2:[3,16,17,22,23,25,33,35,36],
+  3:[6,7,8,9,10,14,21,27,32],
+  4:[4,13,15,18,24,29,30,31,34]
+};
+
+// App state
+var state = {
+  userName:"", segments:[], lastSession:null, trackerTotals:null,
+  currentBlock:null, currentScenarioIndex:-1, currentScenarioNum:null,
+  currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null,
+};
+
+const STORAGE_KEY = "ecocommute_sessions";
+const SURVEY_KEY  = "ecocommute_survey_responses";
+const round2 = function(n){ return Math.round(n*100)/100; };
+const randFactor = function(){ return 0.9 + Math.random()*0.2; };
+
+// ── SCREEN 1: WELCOME ─────────────────────────────────────────────
+var nameInput = $("user-name");
+var btnStart  = $("btn-start");
+
+nameInput.addEventListener("input", function() {
+  btnStart.disabled = !nameInput.value.trim();
+});
+nameInput.addEventListener("keydown", function(e) {
+  if(e.key === "Enter" && nameInput.value.trim()) startBuilder();
+});
+btnStart.addEventListener("click", startBuilder);
+
+function startBuilder() {
+  state.userName = nameInput.value.trim();
+  state.segments = [];
+  $("disp-name").textContent = state.userName;
+  populateModeSelect();
+  renderChain();
+  showScreen("screen-builder");
+}
+
+// ── SCREEN 2: BUILDER ─────────────────────────────────────────────
+function populateModeSelect() {
+  var sel = $("sel-mode");
+  sel.innerHTML = '<option value="">— Select mode —</option>';
+  Object.keys(MODES).forEach(function(id) {
+    var o = document.createElement("option");
+    o.value = id; o.textContent = MODES[id].label;
+    sel.appendChild(o);
+  });
+}
+
+function checkAddBtn() {
+  var mode = $("sel-mode").value;
+  var time = parseFloat($("inp-time").value);
+  $("btn-add").disabled = !(mode && time > 0);
+}
+$("sel-mode").addEventListener("change", checkAddBtn);
+$("inp-time").addEventListener("input", checkAddBtn);
+$("inp-cost").addEventListener("input", checkAddBtn);
+$("inp-wait").addEventListener("input", checkAddBtn);
+
+$("btn-add").addEventListener("click", function() {
+  var modeId  = $("sel-mode").value;
+  var minutes = parseFloat($("inp-time").value);
+  var cost    = parseFloat($("inp-cost").value) || 0;
+  var waitMin = parseFloat($("inp-wait").value) || 0;
+  if(!modeId || minutes <= 0) return;
+
+  var d = MODES[modeId];
+  state.segments.push({
+    mode: modeId,
+    label: d.label,
+    minutes: minutes,
+    waitMin: waitMin,
+    totalMin: minutes + waitMin,
+    cost: round2(cost),
+    co2: round2(d.co2 * randFactor() * minutes),
+    calories: round2(d.cal * randFactor() * minutes),
+    distKm: round2(d.speedKmh * minutes / 60),
+    speedKmh: d.speedKmh,
+  });
+
+  $("sel-mode").value = "";
+  $("inp-time").value = "";
+  $("inp-cost").value = "";
+  $("inp-wait").value = "0";
+  $("btn-add").disabled = true;
+  $("btn-finish").disabled = false;
+  renderChain();
+});
+
+function renderChain(container, segs, removable) {
+  container = container || "segment-chain";
+  segs      = segs      || state.segments;
+  removable = (removable === undefined) ? true : removable;
+
+  var chain = $(container);
+  if(!chain) return;
+  var empty = $("empty-state");
+  chain.innerHTML = "";
+
+  if(segs.length === 0) {
+    if(empty) empty.style.display = "";
+    return;
+  }
+  if(empty) empty.style.display = "none";
+
+  segs.forEach(function(seg, i) {
+    var row = document.createElement("div");
+    row.className = "seg-row";
+
+    var lineCol = document.createElement("div");
+    lineCol.className = "seg-line-col";
+    var bubble = document.createElement("div");
+    bubble.className = "seg-bubble";
+    bubble.textContent = i + 1;
+    lineCol.appendChild(bubble);
+    if(i < segs.length - 1) {
+      var conn = document.createElement("div");
+      conn.className = "seg-connector";
+      lineCol.appendChild(conn);
+    }
+
+    var card = document.createElement("div");
+    card.className = "seg-card";
+    var info = document.createElement("div");
+    info.className = "seg-info";
+    var modeLabel = document.createElement("div");
+    modeLabel.className = "seg-mode-label";
+    modeLabel.textContent = seg.label;
+    var badges = document.createElement("div");
+    badges.className = "seg-badges";
+    var timeText = seg.waitMin > 0
+      ? seg.minutes + " min + " + seg.waitMin + " wait"
+      : seg.minutes + " min";
+    badges.innerHTML =
+      '<span class="badge blue">⏱ ' + timeText + '</span>' +
+      '<span class="badge teal">📍 ' + seg.distKm + ' km</span>' +
+      '<span class="badge amber">₹ ' + seg.cost + '</span>' +
+      '<span class="badge red">🌫 ' + seg.co2 + 'g</span>' +
+      '<span class="badge green">🔥 ' + seg.calories + ' kcal</span>';
+    info.appendChild(modeLabel);
+    info.appendChild(badges);
+    card.appendChild(info);
+
+    if(removable) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-danger-ghost remove-btn";
+      btn.textContent = "✕ Remove";
+      btn.dataset.idx = i;
+      card.appendChild(btn);
+    }
+
+    row.appendChild(lineCol);
+    row.appendChild(card);
+    chain.appendChild(row);
+  });
+
+  if(removable) {
+    chain.querySelectorAll(".remove-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        state.segments.splice(parseInt(btn.dataset.idx), 1);
+        $("btn-finish").disabled = state.segments.length === 0;
+        renderChain();
+      });
+    });
+  }
+}
+
+$("btn-back-welcome").addEventListener("click", function() { showScreen("screen-welcome"); });
+
+$("btn-finish").addEventListener("click", function() {
+  var segs = state.segments;
+  var totalTime  = segs.reduce(function(s,x){ return s + x.totalMin; }, 0);
+  var totalCost  = round2(segs.reduce(function(s,x){ return s + x.cost; }, 0));
+  var totalCO2   = round2(segs.reduce(function(s,x){ return s + x.co2; }, 0));
+  var totalCal   = round2(segs.reduce(function(s,x){ return s + x.calories; }, 0));
+  var totalDist  = round2(segs.reduce(function(s,x){ return s + x.distKm; }, 0));
+
+  var session = {
+    userName: state.userName,
+    timestamp: new Date().toLocaleString("en-IN"),
+    segments: segs.slice(),
+    totalTime: totalTime,
+    totalTravel: segs.reduce(function(s,x){ return s + x.minutes; }, 0),
+    totalWait: segs.reduce(function(s,x){ return s + x.waitMin; }, 0),
+    totalCost: totalCost,
+    totalCO2: totalCO2,
+    totalCalories: totalCal,
+    totalDist: totalDist,
+  };
+
+  state.lastSession = session;
+  state.trackerTotals = {
+    totalTime: totalTime, totalCost: totalCost,
+    totalCO2: totalCO2,   totalCal: totalCal, totalDist: totalDist,
+  };
+
+  $("result-name").textContent = state.userName;
+  $("result-sub").textContent  = segs.length + " leg" + (segs.length > 1 ? "s" : "") + " · " + totalDist + " km · " + session.timestamp;
+  $("res-time").textContent  = totalTime + " min";
+  $("res-cost").textContent  = "₹" + totalCost;
+  $("res-co2").textContent   = totalCO2 + "g";
+  $("res-cal").textContent   = totalCal;
+
+  renderChain("result-segments", segs, false);
+  saveTrackerSession(session);
+  showScreen("screen-result");
+});
+
+// ── SCREEN 3: RESULTS ─────────────────────────────────────────────
+$("btn-new").addEventListener("click", function() {
+  nameInput.value = "";
+  btnStart.disabled = true;
+  state = {
+    userName:"", segments:[], lastSession:null, trackerTotals:null,
+    currentBlock:null, currentScenarioIndex:-1, currentScenarioNum:null,
+    currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null,
+  };
+  showScreen("screen-welcome");
+});
+
+$("btn-redownload").addEventListener("click", function() {
+  var sessions = loadTrackerSessions();
+  if(!sessions.length) { alert("No tracker data saved yet."); return; }
+  downloadTrackerCSV(sessions);
+});
+
+$("btn-go-survey").addEventListener("click", function() {
+  $("disp-name-block").textContent = state.userName;
+  showScreen("screen-block");
+});
+
+// ── SCREEN 4: BLOCK SELECTOR ──────────────────────────────────────
+$("btn-back-result").addEventListener("click", function() { showScreen("screen-result"); });
+
+document.querySelectorAll(".block-card").forEach(function(card) {
+  card.addEventListener("click", function() {
+    state.currentBlock = parseInt(card.dataset.block);
+    state.currentBlockChoices = [];
+    state.currentScenarioIndex = 0;
+    state.currentScenarioNum = blockToScenarios[state.currentBlock][0];
+    state.awaitingConfirm = false;
+    state.lastChosenAlt = null;
+    loadScenario(state.currentScenarioNum);
+    showScreen("screen-survey");
+  });
+});
+
+// ── SCREEN 5: SCENARIO SURVEY ─────────────────────────────────────
+function buildModes(alt) {
+  var p = [];
+  if(alt.fm1 && alt.fm1 !== "NONE") p.push(alt.fm1);
+  if(alt.fm2 && alt.fm2 !== "NONE") p.push(alt.fm2);
+  p.push("METRO");
+  if(alt.lm1 && alt.lm1 !== "NONE") p.push(alt.lm1);
+  if(alt.lm2 && alt.lm2 !== "NONE") p.push(alt.lm2);
+  return p;
+}
+
+function dot(val, type) {
+  if(type === "safety")  return val.includes("High") ? "🟢" : val.includes("Moderate") ? "🟡" : "🔴";
+  if(type === "traffic") return val.includes("Low")  ? "🟢" : val.includes("Moderate") ? "🟡" : "🔴";
+  if(type === "parking") return val.includes("Easy") ? "🟢" : val.includes("Limited")  ? "🟡" : "🔴";
+  return "";
+}
+
+function loadScenario(num) {
+  var sc = null;
+  for(var si=0;si<scenarios.length;si++){ if(scenarios[si].scenario===num){ sc=scenarios[si]; break; } }
+  if(!sc) return;
+
+  var scList = blockToScenarios[state.currentBlock];
+  var idx    = state.currentScenarioIndex;
+  var total  = scList.length;
+
+  $("scenarioTitle").textContent     = "Scenario " + num + " — Make Your Choice";
+  $("scenario-progress").textContent = (idx+1) + " of " + total;
+  $("progress-fill").style.width     = Math.round((idx / total) * 100) + "%";
+
+  // Show choice buttons, hide confirm panel
+  $("nextBtn").style.display    = "";
+  $("nextBtn").textContent      = "Submit Choice →";
+  $("confirmPanel").style.display = "none";
+
+  var tbody = $("choiceTable").querySelector("tbody");
+  tbody.innerHTML = "";
+
+  // Your journey reference row
+  var t = state.trackerTotals;
+  if(t) {
+    var yr = document.createElement("tr");
+    var yth = document.createElement("th");
+    yth.className = "attribute";
+    yth.textContent = "📍 Your Journey";
+    var ytd = document.createElement("td");
+    ytd.colSpan = 4;
+    ytd.className = "your-journey-cell";
+    ytd.textContent = "⏱ " + t.totalTime + " min  ·  ₹" + t.totalCost + "  ·  🌫 " + t.totalCO2 + "g CO₂  ·  🔥 " + t.totalCal + " kcal  ·  📍 " + t.totalDist + " km";
+    yr.appendChild(yth);
+    yr.appendChild(ytd);
+    tbody.appendChild(yr);
+  }
+
+  // Attribute rows
+  var alts = ["A","B","C","D"];
+  var rowDefs = [
+    { label:"Modes",      fn: function(a){ return buildModes(a).join(" → "); }, isMode:true },
+    { label:"Time (min)", fn: function(a){ return a.time.toFixed(1); } },
+    { label:"Cost (₹)",  fn: function(a){ return "₹" + Math.round(a.cost); } },
+    { label:"Calories",   fn: function(a){ return "" + Math.round(a.calories); } },
+    { label:"CO₂ (g)",   fn: function(a){ return "" + Math.round(a.co2); } },
+    { label:"Safety",     fn: function(a){ return dot(a.safety,"safety") + " " + a.safety.split("(")[0].trim(); } },
+    { label:"Parking",    fn: function(a){ return dot(a.parking,"parking") + " " + a.parking; } },
+    { label:"Traffic",    fn: function(a){ return dot(a.traffic,"traffic") + " " + a.traffic.split("(")[0].trim(); } },
+  ];
+
+  rowDefs.forEach(function(row) {
+    var tr = document.createElement("tr");
+    var th = document.createElement("th");
+    th.className = "attribute";
+    th.textContent = row.label;
+    tr.appendChild(th);
+    alts.forEach(function(k) {
+      var td = document.createElement("td");
+      if(row.isMode) {
+        var div = document.createElement("div");
+        div.className = "mode-chain";
+        div.textContent = row.fn(sc.alternatives[k]);
+        td.appendChild(div);
+      } else {
+        td.textContent = row.fn(sc.alternatives[k]);
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  // Choice radio row
+  var cr = document.createElement("tr");
+  cr.className = "choice-row";
+  var chTh = document.createElement("th");
+  chTh.className = "attribute";
+  chTh.textContent = "Your Choice";
+  cr.appendChild(chTh);
+  alts.forEach(function(letter) {
+    var td = document.createElement("td");
+    var label = document.createElement("label");
+    label.className = "radio-label";
+    var input = document.createElement("input");
+    input.type = "radio";
+    input.name = "choice";
+    input.value = letter;
+    var span = document.createElement("span");
+    span.textContent = letter;
+    label.appendChild(input);
+    label.appendChild(span);
+    td.appendChild(label);
+    cr.appendChild(td);
+  });
+  tbody.appendChild(cr);
+}
+
+// Show comparison after choice is made
+function showChoiceConfirm(sc, chosenLetter) {
+  var alt = sc.alternatives[chosenLetter];
+  var t   = state.trackerTotals;
+
+  // Highlight chosen column in the main table
+  var tbody = $("choiceTable").querySelector("tbody");
+  var rows  = tbody.querySelectorAll("tr");
+  var alts  = ["A","B","C","D"];
+  var chosenIdx = alts.indexOf(chosenLetter); // 0-based, +1 for th offset
+
+  rows.forEach(function(tr) {
+    var cells = tr.querySelectorAll("td");
+    cells.forEach(function(td, ci) {
+      if(ci === chosenIdx) {
+        td.style.background = "rgba(110,255,160,0.13)";
+        td.style.borderColor = "rgba(110,255,160,0.5)";
+      }
+    });
+  });
+
+  // Build confirm panel content
+  var panel = $("confirmPanel");
+  panel.innerHTML = "";
+
+  var title = document.createElement("div");
+  title.className = "confirm-title";
+  title.innerHTML = "You chose <strong>Option " + chosenLetter + "</strong> — here's how it compares to your actual journey:";
+  panel.appendChild(title);
+
+  var grid = document.createElement("div");
+  grid.className = "confirm-grid";
+
+  function mkCard(label, yours, chosen, lowerBetter) {
+    var yoursN  = parseFloat(yours);
+    var chosenN = parseFloat(chosen);
+    var better  = lowerBetter ? chosenN < yoursN : chosenN > yoursN;
+    var same    = Math.abs(chosenN - yoursN) < 0.01;
+    var arrow   = same ? "=" : (better ? "▼ better" : "▲ higher");
+    var arrowCls= same ? "" : (better ? "conf-better" : "conf-worse");
+    var c = document.createElement("div");
+    c.className = "confirm-card";
+    c.innerHTML =
+      '<div class="conf-label">' + label + '</div>' +
+      '<div class="conf-row"><span class="conf-yours">You: ' + yours + '</span><span class="conf-arrow ' + arrowCls + '">' + arrow + '</span><span class="conf-chosen">Opt ' + chosenLetter + ': ' + chosen + '</span></div>';
+    return c;
+  }
+
+  if(t) {
+    grid.appendChild(mkCard("⏱ Time (min)",   t.totalTime, alt.time.toFixed(1),  true));
+    grid.appendChild(mkCard("₹ Cost",          "₹"+t.totalCost, "₹"+Math.round(alt.cost), true));
+    grid.appendChild(mkCard("🌫 CO₂ (g)",      t.totalCO2, Math.round(alt.co2),  true));
+    grid.appendChild(mkCard("🔥 Calories",     t.totalCal, Math.round(alt.calories), false));
+  }
+  panel.appendChild(grid);
+
+  var modeRow = document.createElement("div");
+  modeRow.className = "confirm-modes";
+  modeRow.innerHTML = "<strong>Mode chain:</strong> <span class='mode-chain'>" + buildModes(alt).join(" → ") + "</span>"
+    + " &nbsp;·&nbsp; " + dot(alt.safety,"safety") + " " + alt.safety.split("(")[0].trim()
+    + " &nbsp;·&nbsp; " + dot(alt.traffic,"traffic") + " " + alt.traffic.split("(")[0].trim()
+    + " &nbsp;·&nbsp; " + dot(alt.parking,"parking") + " " + alt.parking;
+  panel.appendChild(modeRow);
+
+  panel.style.display = "";
+
+  // Swap button to Continue
+  $("nextBtn").textContent = state.currentScenarioIndex < blockToScenarios[state.currentBlock].length - 1
+    ? "Next Scenario →"
+    : "Finish Survey →";
+}
+
+$("btn-back-block").addEventListener("click", function() { showScreen("screen-block"); });
+
+$("nextBtn").addEventListener("click", function() {
+  // Phase 1: choice not yet submitted — validate & show confirm
+  if(!state.awaitingConfirm) {
+    var radios = document.querySelectorAll("input[name='choice']");
+    var selected = null;
+    radios.forEach(function(r) { if(r.checked) selected = r.value; });
+    if(!selected) { alert("Please select one option (A, B, C or D)."); return; }
+
+    var scNum = state.currentScenarioNum;
+    var sc = null;
+    for(var si=0;si<scenarios.length;si++){ if(scenarios[si].scenario===scNum){ sc=scenarios[si]; break; } }
+
+    state.currentBlockChoices.push({ scenario: scNum, choice: selected });
+    state.awaitingConfirm = true;
+    state.lastChosenAlt   = selected;
+    showChoiceConfirm(sc, selected);
+    return;
+  }
+
+  // Phase 2: user has seen confirm, now actually advance
+  state.awaitingConfirm = false;
+  state.lastChosenAlt   = null;
+
+  var list = blockToScenarios[state.currentBlock];
+  if(state.currentScenarioIndex < list.length - 1) {
+    state.currentScenarioIndex++;
+    state.currentScenarioNum = list[state.currentScenarioIndex];
+    loadScenario(state.currentScenarioNum);
+  } else {
+    buildLatentQuestions();
+    showScreen("screen-latent");
+  }
+});
+
+// ── SCREEN 6: LATENT + DEMOGRAPHICS ──────────────────────────────
+function buildLatentQuestions() {
+  var container = $("latent-questions");
+  container.innerHTML = "";
+  LATENT_QS.forEach(function(q, i) {
+    var div = document.createElement("div");
+    div.className = "question-item";
+    var span = document.createElement("span");
+    span.className = "question-text";
+    span.textContent = (i+1) + ". " + q;
+    div.appendChild(span);
+    var scale = document.createElement("div");
+    scale.className = "likert-scale";
+    [1,2,3,4,5].forEach(function(v) {
+      var lbl = document.createElement("label");
+      var inp = document.createElement("input");
+      inp.type  = "radio";
+      inp.name  = "q" + (i+1);
+      inp.value = v;
+      lbl.appendChild(inp);
+      lbl.appendChild(document.createTextNode(v));
+      scale.appendChild(lbl);
+    });
+    div.appendChild(scale);
+    container.appendChild(div);
+  });
+}
+
+$("submitBtn").addEventListener("click", function() {
+  var errDiv = $("submit-error");
+  if(errDiv) errDiv.style.display = "none";
+
+  function showErr(msg) {
+    var e = $("submit-error");
+    if(e){ e.textContent = "⚠ " + msg; e.style.display = "block"; e.scrollIntoView({behavior:"smooth",block:"center"}); }
+    else { alert(msg); }
+  }
+
+  try {
+    // 1. Validate demographics
+    var reqFields = ["age_group","gender","occupation","education","income","license","hh_size"];
+    for(var fi = 0; fi < reqFields.length; fi++) {
+      var fname = reqFields[fi];
+      var el = document.querySelector("[name='" + fname + "']");
+      if(!el || !el.value) { showErr("Please select your " + fname.replace(/_/g," ")); return; }
+    }
+
+    // 2. Validate latent questions
+    var latent = {};
+    var latentContainer = $("latent-questions");
+    if(latentContainer && latentContainer.children.length > 0) {
+      for(var qi = 1; qi <= 9; qi++) {
+        var qChecked = null;
+        var qRadios  = latentContainer.querySelectorAll("input[name='q" + qi + "']");
+        for(var ri = 0; ri < qRadios.length; ri++) {
+          if(qRadios[ri].checked){ qChecked = qRadios[ri].value; break; }
+        }
+        if(!qChecked){ showErr("Please answer attitude statement " + qi + "."); return; }
+        latent["q" + qi] = qChecked;
+      }
+    }
+
+    // 3. Collect demographics
+    var demo = {
+      age_group:  document.querySelector("[name='age_group']").value,
+      gender:     document.querySelector("[name='gender']").value,
+      occupation: document.querySelector("[name='occupation']").value,
+      education:  document.querySelector("[name='education']").value,
+      income:     document.querySelector("[name='income']").value,
+      license:    document.querySelector("[name='license']").value,
+      hh_size:    document.querySelector("[name='hh_size']").value,
+      vehicles:   "",
+    };
+    var vChecked = document.querySelectorAll("input[name='vehicles']:checked");
+    var vVals = [];
+    for(var vi = 0; vi < vChecked.length; vi++) vVals.push(vChecked[vi].value);
+    demo.vehicles = vVals.join("; ");
+
+    // 4. Collect scenario choices
+    var choices = {};
+    for(var ci = 0; ci < state.currentBlockChoices.length; ci++) {
+      var ch = state.currentBlockChoices[ci];
+      choices["sc" + ch.scenario + "_choice"] = ch.choice;
+    }
+
+    // 5. Build survey row
+    var surveyRow = {
+      block:        state.currentBlock || "",
+      timestamp:    new Date().toISOString(),
+      user:         state.userName || "",
+      tracker_time: state.trackerTotals ? state.trackerTotals.totalTime  : "",
+      tracker_cost: state.trackerTotals ? state.trackerTotals.totalCost  : "",
+      tracker_co2:  state.trackerTotals ? state.trackerTotals.totalCO2   : "",
+      tracker_cal:  state.trackerTotals ? state.trackerTotals.totalCal   : "",
+      tracker_dist: state.trackerTotals ? state.trackerTotals.totalDist  : "",
+    };
+    // merge choices, latent, demographics
+    var i, k, keys;
+    keys = Object.keys(choices); for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=choices[k]; }
+    keys = Object.keys(latent);  for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=latent[k]; }
+    keys = Object.keys(demo);    for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=demo[k]; }
+
+    // 6. Save survey response
+    var existing = [];
+    try { existing = JSON.parse(localStorage.getItem(SURVEY_KEY) || "[]"); } catch(e2) { existing = []; }
+    existing.push(surveyRow);
+    localStorage.setItem(SURVEY_KEY, JSON.stringify(existing));
+
+    // 7. Download single unified Excel (tracker + survey combined)
+    var trackerSessions = loadTrackerSessions();
+    downloadUnifiedCSV(trackerSessions, existing);
+
+    alert("✅ Response saved! Your unified data file has been downloaded.");
+    location.reload();
+
+  } catch(err) {
+    showErr("Unexpected error: " + err.message);
+    console.error("Submit error:", err);
+  }
+});
+
+$("exportAllBtn").addEventListener("click", function() {
+  var trackerSessions = loadTrackerSessions();
+  var surveyRows      = [];
+  try { surveyRows = JSON.parse(localStorage.getItem(SURVEY_KEY) || "[]"); } catch(e) { surveyRows = []; }
+  if(!trackerSessions.length && !surveyRows.length) { alert("No data saved yet."); return; }
+  downloadUnifiedCSV(trackerSessions, surveyRows);
+  alert("Exported " + surveyRows.length + " survey response(s) and " + trackerSessions.length + " tracker session(s).");
+});
+
+// ── DATA / DOWNLOAD ───────────────────────────────────────────────
+function loadTrackerSessions() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
+}
+function saveTrackerSession(session) {
+  try {
+    var all = loadTrackerSessions().concat([session]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+
+// Single CSV with two sheets simulated as two sections
+function downloadUnifiedCSV(trackerSessions, surveyRows) {
+  var lines = [];
+
+  // ── SECTION 1: TRAVEL TRACKER LOG ──
+  lines.push('"=== TRAVEL TRACKER LOG ==="');
+  lines.push('"User","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
+
+  trackerSessions.forEach(function(s, si) {
+    s.segments.forEach(function(seg, i) {
+      var iF = (i === 0);
+      var iL = (i === s.segments.length - 1);
+      var row = [
+        iF ? s.userName      : "",
+        iF ? (si + 1)        : "",
+        iF ? s.timestamp     : "",
+        i + 1,
+        seg.label,
+        seg.speedKmh,
+        seg.minutes,
+        seg.waitMin,
+        seg.totalMin,
+        seg.distKm,
+        seg.cost,
+        seg.co2,
+        seg.calories,
+        iL ? s.totalTime      : "",
+        iL ? s.totalDist      : "",
+        iL ? s.totalCost      : "",
+        iL ? s.totalCO2       : "",
+        iL ? s.totalCalories  : "",
+      ];
+      lines.push(row.map(function(v){ return '"' + String(v !== undefined ? v : "").replace(/"/g,'""') + '"'; }).join(","));
+    });
+    lines.push(""); // blank row between sessions
+  });
+
+  // ── SECTION 2: SURVEY RESPONSES ──
+  lines.push("");
+  lines.push('"=== SURVEY RESPONSES ==="');
+
+  if(surveyRows.length > 0) {
+    // Build header from all possible keys across all rows
+    var headerSet = [];
+    surveyRows.forEach(function(r) {
+      Object.keys(r).forEach(function(k) {
+        if(headerSet.indexOf(k) === -1) headerSet.push(k);
+      });
+    });
+    lines.push(headerSet.map(function(h){ return '"' + String(h).replace(/"/g,'""') + '"'; }).join(","));
+    surveyRows.forEach(function(r) {
+      var row = headerSet.map(function(h) {
+        var v = r[h] !== undefined && r[h] !== null ? r[h] : "";
+        return '"' + String(v).replace(/"/g,'""') + '"';
+      });
+      lines.push(row.join(","));
+    });
+  } else {
+    lines.push('"No survey responses yet"');
+  }
+
+  triggerDownload(lines.join("\r\n"), "ecocommute_data_" + Date.now() + ".csv", "text/csv;charset=utf-8;");
+}
+
+// Tracker-only re-download (for re-download button on results screen)
+function downloadTrackerCSV(sessions) {
+  var lines = [];
+  lines.push('"User","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
+  sessions.forEach(function(s, si) {
+    s.segments.forEach(function(seg, i) {
+      var iF = (i === 0);
+      var iL = (i === s.segments.length - 1);
+      var row = [
+        iF ? s.userName      : "",
+        iF ? (si + 1)        : "",
+        iF ? s.timestamp     : "",
+        i + 1,
+        seg.label,
+        seg.speedKmh,
+        seg.minutes,
+        seg.waitMin,
+        seg.totalMin,
+        seg.distKm,
+        seg.cost,
+        seg.co2,
+        seg.calories,
+        iL ? s.totalTime      : "",
+        iL ? s.totalDist      : "",
+        iL ? s.totalCost      : "",
+        iL ? s.totalCO2       : "",
+        iL ? s.totalCalories  : "",
+      ];
+      lines.push(row.map(function(v){ return '"' + String(v !== undefined ? v : "").replace(/"/g,'""') + '"'; }).join(","));
+    });
+    lines.push("");
+  });
+  triggerDownload(lines.join("\r\n"), "ecocommute_tracker_" + Date.now() + ".csv", "text/csv;charset=utf-8;");
+}
+
+function triggerDownload(content, filename, mimeType) {
+  try {
+    var blob = new Blob([content], {type: mimeType});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement("a");
+    a.href = url; a.download = filename; a.style.display = "none";
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+  } catch(err) {
+    alert("Download failed: " + err.message);
+    console.error(err);
+  }
+}
+
+// Init
+showScreen("screen-welcome");
+
+</script>
+</body>
+</html>
