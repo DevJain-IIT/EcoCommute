@@ -88,6 +88,11 @@
     .form-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b6f7c' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
     .form-group select:focus,.form-group input:focus{border-color:rgba(110,255,160,.4);background:rgba(255,255,255,.07)}
     .form-group select option{background:#13161f}
+    /* Trip purpose select */
+    .purpose-wrap{margin-bottom:18px}
+    .purpose-wrap .form-group select{width:100%}
+    .purpose-other-input{margin-top:10px;width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font-family:'Satoshi',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;display:none}
+    .purpose-other-input:focus{border-color:rgba(110,255,160,.4)}
     .divider{border:none;border-top:1px solid var(--border);margin:20px 0}
     .action-row{display:flex;gap:12px;align-items:center}
     .empty-state{text-align:center;padding:28px;color:var(--muted);border:1.5px dashed var(--border);border-radius:var(--radius);margin-bottom:20px;font-size:.9rem}
@@ -153,6 +158,9 @@
     .confirm-panel{background:rgba(110,255,160,.06);border:1px solid rgba(110,255,160,.2);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px}
     .confirm-title{font-size:.92rem;color:var(--sub);margin-bottom:14px;line-height:1.5}
     .confirm-title strong{color:var(--green)}
+    /* NOTE: The comparison always uses the pre-stored values from the scenario JSON
+       (alt.time, alt.cost, alt.calories, alt.co2) — never any recalculated values.
+       This ensures the comparison matches exactly what was shown in the table. */
     .confirm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
     .confirm-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
     .conf-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px;font-weight:600}
@@ -161,6 +169,7 @@
     .conf-arrow{font-size:.78rem;font-weight:700;padding:2px 7px;border-radius:100px}
     .conf-better{background:rgba(110,255,160,.15);color:var(--green)}
     .conf-worse{background:rgba(255,107,107,.15);color:var(--red)}
+    .conf-same{background:rgba(255,255,255,.08);color:var(--sub)}
     .conf-chosen{color:var(--text);font-weight:600}
     .confirm-modes{font-size:.83rem;color:var(--sub);line-height:1.7}
     .confirm-modes strong{color:var(--text)}
@@ -180,12 +189,14 @@
     .admin-row{display:flex;gap:10px;justify-content:center;margin-top:14px}
     .btn-ghost-admin{background:rgba(110,255,160,.06);border:1px dashed rgba(110,255,160,.2);color:var(--muted);padding:9px 18px;font-size:.8rem;border-radius:10px;cursor:pointer;font-family:'Satoshi',sans-serif;font-weight:600;transition:all .2s}
     .btn-ghost-admin:hover{color:var(--green);border-color:rgba(110,255,160,.4)}
+    .info-note{font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-top:10px;line-height:1.5}
     @media(max-width:640px){
       header{padding:12px 18px}main{padding:20px 14px}.welcome-hero{padding:36px 18px}
       .stat-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr 1fr}
       .action-row{flex-direction:column}.action-row .btn{width:100%}
       .name-row{flex-direction:column}.block-grid{grid-template-columns:1fr 1fr}
       table,th,td{font-size:.78rem;padding:6px 4px}
+      .confirm-grid{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -216,7 +227,7 @@
           <div class="feat">🔥 Calories Burnt</div>
           <div class="feat">💸 Travel Cost</div>
           <div class="feat">🚇 Metro Scenarios</div>
-          <div class="feat">📊 Excel Export</div>
+          <div class="feat">📊 CSV Export</div>
         </div>
         <div class="name-row">
           <div class="input-wrap">
@@ -225,6 +236,10 @@
           </div>
           <button class="btn btn-primary" id="btn-start" type="button" disabled>Begin →</button>
         </div>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:16px">
+          Research study by <strong style="color:var(--sub)">Abhishek</strong>, IIT Ropar, under Dr. Rahul TM.<br>
+          Participation is voluntary · Responses are anonymous · Data used only for academic research.
+        </p>
       </div>
     </div>
 
@@ -232,16 +247,38 @@
     <div class="panel" id="screen-builder" style="display:none">
       <div class="builder-header">
         <div>
-          <div class="section-title">Build Your Route</div>
-          <div class="section-sub">Add each transport segment in order.</div>
+          <div class="section-title">Your Typical Journey</div>
+          <div class="section-sub">Think of a regular trip you make in the Chandigarh region. Add each transport leg in order.</div>
         </div>
         <div class="user-pill">👤 <span id="disp-name"></span></div>
       </div>
+
+      <!-- Trip Purpose -->
+      <div class="add-form purpose-wrap">
+        <div class="add-form-title">🎯 Trip Purpose</div>
+        <div class="form-group">
+          <label>Main purpose of this trip *</label>
+          <select id="sel-purpose">
+            <option value="">— Select purpose —</option>
+            <option value="Work">Work / Office / Job-related</option>
+            <option value="Education">Education / School / College</option>
+            <option value="Shopping">Shopping / Market</option>
+            <option value="Social">Social / Recreation / Visiting friends or family</option>
+            <option value="Medical">Medical / Healthcare</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <input type="text" id="inp-purpose-other" class="purpose-other-input" placeholder="Please specify if Other…"/>
+      </div>
+
+      <!-- Segment chain -->
       <div id="segment-chain" class="segment-chain"></div>
       <div id="empty-state" class="empty-state">
         <div class="empty-icon">🗺️</div>
         <div>No segments yet — add your first leg below</div>
       </div>
+
+      <!-- Add segment form -->
       <div class="add-form">
         <div class="add-form-title">➕ Add Next Segment</div>
         <div class="form-grid">
@@ -258,11 +295,18 @@
             <input type="number" id="inp-wait" min="0" placeholder="0" value="0"/>
           </div>
           <div class="form-group">
-            <label>Cost (₹)</label>
+            <label>Cost (₹) — 0 for Walking</label>
             <input type="number" id="inp-cost" min="0" placeholder="0 if free"/>
           </div>
         </div>
-        <button class="btn btn-add-seg" id="btn-add" type="button" disabled>+ Add Segment</button>
+        <div class="info-note">💡 Walking cost is always ₹0. CO₂ and calories are estimated from travel time using standard rates.</div>
+        <button class="btn btn-add-seg" id="btn-add" type="button" disabled style="margin-top:12px">+ Add Segment</button>
+      </div>
+      <div id="total-summary" style="font-size:.88rem;color:var(--sub);padding:8px 4px;margin-bottom:8px;display:none">
+        Total: <strong style="color:var(--text)"><span id="total-time-disp">0</span> min</strong> &nbsp;·&nbsp;
+        <strong style="color:var(--amber)">₹<span id="total-cost-disp">0</span></strong> &nbsp;·&nbsp;
+        <strong style="color:var(--red)"><span id="total-co2-disp">0</span>g CO₂</strong> &nbsp;·&nbsp;
+        <strong style="color:var(--green)"><span id="total-cal-disp">0</span> kcal</strong>
       </div>
       <hr class="divider">
       <div class="action-row">
@@ -285,14 +329,14 @@
         <div class="stat-card c-green"><div class="stat-icon">🔥</div><div class="stat-value" id="res-cal">—</div><div class="stat-label">Calories Burnt</div></div>
       </div>
       <div class="excel-notice">
-        <span style="font-size:1.3rem">📥</span>
-        <div>Excel file downloaded! <strong>Data saves automatically in this browser. Download anytime from the Final Questions screen.</strong></div>
+        <span style="font-size:1.3rem">💾</span>
+        <div>Journey saved! <strong>All data saves automatically in this browser — download the full dataset from the Final Questions screen or below.</strong></div>
       </div>
       <div class="survey-cta">
         <span style="font-size:2rem">🚇</span>
         <div class="survey-cta-text">
           <strong>Compare with Metro Scenarios</strong>
-          <span>Choose a block and compare metro access/egress options against your journey.</span>
+          <span>Choose a block and compare metro access/egress options against your journey. The scenario values shown are fixed — your comparison will be accurate.</span>
         </div>
         <button class="btn btn-survey" id="btn-go-survey" type="button">Take Survey →</button>
       </div>
@@ -310,15 +354,15 @@
       <div class="builder-header">
         <div>
           <div class="section-title">Metro Scenario Survey</div>
-          <div class="section-sub">Select your assigned block to begin the 9 stated-preference scenarios.</div>
+          <div class="section-sub">Select your assigned block to begin 9 stated-preference scenarios.</div>
         </div>
         <div class="user-pill">👤 <span id="disp-name-block"></span></div>
       </div>
       <div class="block-grid">
-        <div class="block-card" data-block="1"><div class="block-num">01</div><div class="block-label">Block 1</div><div class="block-scenarios">Scenarios: 1, 2, 5, 11, 12, 19, 20, 26, 28</div></div>
-        <div class="block-card" data-block="2"><div class="block-num">02</div><div class="block-label">Block 2</div><div class="block-scenarios">Scenarios: 3, 16, 17, 22, 23, 25, 33, 35, 36</div></div>
-        <div class="block-card" data-block="3"><div class="block-num">03</div><div class="block-label">Block 3</div><div class="block-scenarios">Scenarios: 6, 7, 8, 9, 10, 14, 21, 27, 32</div></div>
-        <div class="block-card" data-block="4"><div class="block-num">04</div><div class="block-label">Block 4</div><div class="block-scenarios">Scenarios: 4, 13, 15, 18, 24, 29, 30, 31, 34</div></div>
+        <div class="block-card" data-block="1"><div class="block-num">01</div><div class="block-label">Block 1</div><div class="block-scenarios">Scenarios: 1, 5, 9, 13, 17, 21, 25, 29, 33</div></div>
+        <div class="block-card" data-block="2"><div class="block-num">02</div><div class="block-label">Block 2</div><div class="block-scenarios">Scenarios: 2, 6, 10, 14, 18, 22, 26, 30, 34</div></div>
+        <div class="block-card" data-block="3"><div class="block-num">03</div><div class="block-label">Block 3</div><div class="block-scenarios">Scenarios: 3, 7, 11, 15, 19, 23, 27, 31, 35</div></div>
+        <div class="block-card" data-block="4"><div class="block-num">04</div><div class="block-label">Block 4</div><div class="block-scenarios">Scenarios: 4, 8, 12, 16, 20, 24, 28, 32, 36</div></div>
       </div>
       <hr class="divider">
       <button class="btn btn-secondary" id="btn-back-result" type="button">← Back to Results</button>
@@ -331,6 +375,8 @@
         <div style="font-size:.82rem;color:var(--muted)" id="scenario-progress"></div>
       </div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      <!-- Values in the table are computed by calcAlt(alt) using alt.distfm/alt.distlm.
+           The comparison panel calls the same function — guaranteed consistency. -->
       <div class="table-wrapper">
         <table id="choiceTable">
           <thead><tr><th>Attribute</th><th>Option A</th><th>Option B</th><th>Option C</th><th>Option D</th></tr></thead>
@@ -339,7 +385,7 @@
       </div>
       <div id="confirmPanel" class="confirm-panel" style="display:none"></div>
       <div class="action-row">
-        <button class="btn btn-secondary" id="btn-back-block" type="button">← Blocks</button>
+        <button class="btn btn-secondary" id="btn-back-scenario" type="button">← Back</button>
         <button class="btn btn-primary" id="nextBtn" type="button" style="flex:1">Submit Choice →</button>
       </div>
     </div>
@@ -404,7 +450,7 @@
       </div>
     </div>
 
-    <!-- SCREEN 7: THANK YOU / SAVED -->
+    <!-- SCREEN 7: THANK YOU -->
     <div class="panel" id="screen-thankyou" style="display:none">
       <div class="welcome-hero" style="padding:56px 40px">
         <div class="welcome-badge">✅ All saved</div>
@@ -425,22 +471,36 @@
   </main>
 </div>
 <script>
-const scenarios = [{"scenario":1,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"BUS","lm2":"NONE","time":17.0,"cost":17.73,"calories":81.31,"co2":256.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":29.0,"cost":32.0,"calories":56.36,"co2":392.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"C":{"fm1":"2W","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":12.0,"cost":52.0,"calories":22.08,"co2":366.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"NONE","time":48.61,"cost":0.0,"calories":297.99,"co2":0.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":2,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":40.9,"cost":24.38,"calories":116.99,"co2":383.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":14.67,"cost":39.33,"calories":17.79,"co2":336.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":28.44,"cost":37.25,"calories":83.03,"co2":224.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":21.44,"cost":79.2,"calories":81.49,"co2":496.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":3,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.57,"cost":10.65,"calories":298.46,"co2":243.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":17.33,"cost":16.67,"calories":23.69,"co2":192.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":16.0,"cost":41.5,"calories":33.11,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":47.17,"cost":61.5,"calories":168.22,"co2":276.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":4,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":33.6,"cost":35.1,"calories":77.69,"co2":462.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":27.0,"cost":54.0,"calories":22.08,"co2":384.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"NONE","time":58.87,"cost":35.1,"calories":281.53,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":14.83,"cost":53.92,"calories":46.6,"co2":330.67,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":5,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":35.5,"cost":27.6,"calories":121.97,"co2":456.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":22.0,"cost":12.0,"calories":22.08,"co2":324.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"BUS","lm1":"E-SCOOTER","lm2":"UBER","time":25.68,"cost":49.93,"calories":100.1,"co2":488.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":34.5,"cost":18.1,"calories":141.57,"co2":210.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":6,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":26.4,"calories":43.89,"co2":466.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":40.3,"cost":68.25,"calories":150.1,"co2":468.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":21.5,"cost":80.45,"calories":71.11,"co2":536.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":16.89,"cost":6.0,"calories":90.66,"co2":123.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":7,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"AUTO","time":40.12,"cost":72.6,"calories":103.77,"co2":412.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.44,"cost":54.0,"calories":67.41,"co2":553.5,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":26.44,"cost":15.6,"calories":153.49,"co2":210.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":26.9,"cost":14.65,"calories":50.4,"co2":359.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":8,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":35.44,"cost":24.83,"calories":197.25,"co2":149.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"BUS","time":24.1,"cost":31.05,"calories":75.89,"co2":572.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":32.0,"cost":26.0,"calories":31.28,"co2":601.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":30.44,"cost":40.0,"calories":58.21,"co2":276.5,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"}}},{"scenario":9,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":21.89,"cost":6.0,"calories":90.66,"co2":123.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":25.2,"cost":109.05,"calories":68.71,"co2":599.7,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"UBER","lm2":"NONE","time":33.9,"cost":58.65,"calories":54.08,"co2":489.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":8.67,"cost":27.33,"calories":36.35,"co2":246.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":10,"block":2,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"E-SCOOTER","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"NONE","time":23.89,"cost":18.0,"calories":134.14,"co2":300.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":12.67,"cost":38.13,"calories":31.47,"co2":346.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":23.94,"cost":18.0,"calories":64.65,"co2":420.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":11,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":18.0,"cost":49.2,"calories":36.16,"co2":435.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"BUS","lm2":"NONE","time":53.67,"cost":12.0,"calories":277.5,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":20.89,"cost":2.0,"calories":88.82,"co2":46.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":23.47,"cost":76.03,"calories":45.81,"co2":399.8,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":12,"block":4,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"AUTO","lm2":"NONE","time":45.0,"cost":16.67,"calories":261.55,"co2":106.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":5.0,"cost":26.0,"calories":9.2,"co2":169.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.61,"cost":6.0,"calories":309.03,"co2":174.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":37.0,"cost":17.0,"calories":83.38,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":13,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":20.67,"cost":32.83,"calories":41.7,"co2":381.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":53.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":19.0,"cost":25.73,"calories":84.99,"co2":386.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":25.27,"cost":22.43,"calories":61.36,"co2":362.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":14,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":27.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":30.1,"cost":18.97,"calories":65.67,"co2":232.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"E-SCOOTER","time":61.17,"cost":15.6,"calories":366.34,"co2":210.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":9.94,"cost":24.0,"calories":48.09,"co2":123.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":15,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":48.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"WALK","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":22.94,"cost":56.0,"calories":72.01,"co2":494.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":30.78,"cost":24.0,"calories":175.8,"co2":123.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":23.47,"cost":28.93,"calories":32.94,"co2":465.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":16,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":28.2,"cost":83.1,"calories":37.16,"co2":418.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"AUTO","time":31.44,"cost":40.6,"calories":162.69,"co2":370.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":38.0,"cost":21.23,"calories":165.9,"co2":140.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":16.6,"cost":15.1,"calories":43.41,"co2":394.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":17,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"UBER","time":25.04,"cost":43.1,"calories":79.54,"co2":346.9,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":32.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"AUTO","lm2":"NONE","time":26.17,"cost":48.93,"calories":123.19,"co2":423.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"WALK","time":34.28,"cost":11.87,"calories":207.25,"co2":70.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":18,"block":2,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":27.89,"cost":18.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":24.33,"cost":56.97,"calories":47.4,"co2":357.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":16.2,"cost":107.1,"calories":42.68,"co2":541.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"UBER","time":22.4,"cost":70.13,"calories":103.49,"co2":481.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":19,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":22.89,"cost":72.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":38.89,"cost":7.5,"calories":177.09,"co2":0.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":15.94,"cost":29.0,"calories":59.13,"co2":276.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":30.5,"cost":21.6,"calories":121.97,"co2":348.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":20,"block":4,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":24.27,"cost":46.93,"calories":25.21,"co2":350.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":49.33,"cost":24.83,"calories":282.39,"co2":149.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":34.89,"cost":6.0,"calories":96.18,"co2":138.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"UBER","lm2":"NONE","time":25.5,"cost":63.6,"calories":121.97,"co2":456.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":21,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":25.5,"cost":15.87,"calories":44.34,"co2":162.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":24.57,"cost":35.98,"calories":75.71,"co2":443.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"AUTO","time":29.42,"cost":74.75,"calories":118.12,"co2":464.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":37.42,"cost":15.0,"calories":85.93,"co2":384.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"}}},{"scenario":22,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":14.33,"cost":50.17,"calories":59.64,"co2":349.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":21.09,"cost":35.1,"calories":111.26,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":32.4,"calories":43.89,"co2":574.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":28.6,"cost":57.1,"calories":47.09,"co2":482.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":23,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":20.67,"cost":48.83,"calories":32.5,"co2":272.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"WALK","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":35.42,"cost":15.0,"calories":91.45,"co2":399.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":19.13,"cost":65.32,"calories":55.51,"co2":358.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"}}},{"scenario":24,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":25.8,"cost":102.65,"calories":57.58,"co2":578.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":13.27,"cost":42.93,"calories":23.37,"co2":273.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":30.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":25.83,"cost":25.0,"calories":136.91,"co2":160.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":25,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":14.41,"cost":16.93,"calories":64.47,"co2":219.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":51.78,"cost":18.0,"calories":186.84,"co2":369.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":16.6,"cost":91.5,"calories":55.65,"co2":513.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":36.78,"cost":4.0,"calories":177.64,"co2":92.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":26,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":31.5,"cost":17.6,"calories":114.61,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":30.5,"cost":109.25,"calories":57.03,"co2":593.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"BUS","time":26.83,"cost":6.0,"calories":138.75,"co2":174.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":21.67,"cost":39.63,"calories":112.38,"co2":208.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":27,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":27.67,"cost":45.33,"calories":23.31,"co2":459.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"BUS","lm2":"NONE","time":11.2,"cost":39.1,"calories":33.48,"co2":288.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":50.44,"cost":24.83,"calories":197.25,"co2":149.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":52.67,"cost":6.0,"calories":266.46,"co2":138.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":28,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":34.57,"cost":25.98,"calories":75.71,"co2":443.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":32.94,"cost":13.5,"calories":145.56,"co2":174.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":14.67,"cost":31.33,"calories":38.19,"co2":323.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":57.67,"cost":6.0,"calories":266.46,"co2":138.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":29,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":13.94,"cost":2.0,"calories":46.25,"co2":46.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"WALK","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":24.86,"cost":37.5,"calories":120.22,"co2":240.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":37.9,"cost":38.65,"calories":92.04,"co2":543.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"BUS","time":22.7,"cost":57.65,"calories":73.31,"co2":552.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}},{"scenario":30,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"BUS","time":21.54,"cost":13.1,"calories":82.3,"co2":336.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.17,"cost":56.5,"calories":106.92,"co2":276.75,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":26.0,"cost":30.0,"calories":38.64,"co2":717.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":25.67,"cost":38.57,"calories":100.93,"co2":289.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic"}}},{"scenario":31,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"UBER","time":37.18,"cost":56.4,"calories":199.81,"co2":341.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"NONE","time":30.54,"cost":7.1,"calories":71.26,"co2":162.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"BUS","time":19.67,"cost":52.03,"calories":48.02,"co2":391.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"CAR","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":28.0,"cost":90.0,"calories":33.12,"co2":738.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"}}},{"scenario":32,"block":4,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":14.0,"cost":14.0,"calories":25.76,"co2":394.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":32.0,"cost":31.73,"calories":90.51,"co2":509.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"WALK","time":22.3,"cost":64.52,"calories":76.15,"co2":328.3,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic"},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":35.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":33,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"UBER","time":33.67,"cost":91.25,"calories":116.74,"co2":500.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":26.0,"cost":55.2,"calories":41.68,"co2":558.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"NONE","time":16.33,"cost":26.4,"calories":90.28,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":25.2,"cost":48.83,"calories":100.07,"co2":312.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)"}}},{"scenario":34,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":23.87,"cost":67.23,"calories":46.54,"co2":380.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":33.33,"cost":24.17,"calories":98.08,"co2":106.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.17,"cost":60.0,"calories":81.79,"co2":399.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":26.5,"cost":65.25,"calories":89.47,"co2":524.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic"}}},{"scenario":35,"block":3,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":25.94,"cost":29.0,"calories":59.13,"co2":252.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)"},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"BUS","time":35.24,"cost":16.93,"calories":192.18,"co2":219.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":13.0,"cost":24.0,"calories":54.52,"co2":423.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":27.47,"cost":85.98,"calories":51.44,"co2":471.63,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)"}}},{"scenario":36,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":10.53,"cost":47.77,"calories":42.45,"co2":272.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)"},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":24.5,"cost":50.98,"calories":114.42,"co2":364.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)"},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.44,"cost":42.0,"calories":61.89,"co2":322.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic"},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"AUTO","time":31.81,"cost":37.5,"calories":162.79,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)"}}}];
+// =============================================================
+// SCENARIOS DATA
+// Values here (time, cost, calories, co2) are the AUTHORITATIVE
+// pre-calculated values. They are used for BOTH table display
+// AND the comparison panel. No recalculation is ever performed.
+// =============================================================
+const scenarios = [{"scenario":1,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"BUS","lm2":"NONE","time":17.0,"cost":17.73,"calories":81.31,"co2":256.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":2.0,"distlm":1.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":29.0,"cost":32.0,"calories":56.36,"co2":392.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":2.0,"distlm":3.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":16.0,"cost":42.0,"calories":32.08,"co2":310.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":3.0},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"NONE","time":40.61,"cost":0.0,"calories":245.99,"co2":0.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":3.0,"distlm":0.5}}},{"scenario":2,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":40.9,"cost":24.38,"calories":116.99,"co2":383.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":3.0,"distlm":2.0},"B":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":14.67,"cost":39.33,"calories":27.79,"co2":336.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":2.0},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":28.44,"cost":37.25,"calories":83.03,"co2":224.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":3.0,"distlm":0.5},"D":{"fm1":"WALK","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":21.44,"cost":79.2,"calories":81.49,"co2":496.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":2.0,"distlm":3.0}}},{"scenario":3,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.57,"cost":10.65,"calories":298.46,"co2":243.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":3.0,"distlm":3.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":17.33,"cost":16.67,"calories":23.69,"co2":192.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":2.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":16.0,"cost":41.5,"calories":46.11,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":2.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":47.17,"cost":61.5,"calories":168.22,"co2":276.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":3.0,"distlm":3.0}}},{"scenario":4,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":33.6,"cost":35.1,"calories":77.69,"co2":462.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":2.0,"distlm":3.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":27.0,"cost":54.0,"calories":22.08,"co2":384.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":3.0,"distlm":2.0},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"NONE","time":58.87,"cost":66.1,"calories":210.53,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":2.0,"distlm":3.0},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"AUTO","lm2":"NONE","time":14.83,"cost":53.92,"calories":46.6,"co2":330.67,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":3.0,"distlm":1.0}}},{"scenario":5,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":35.5,"cost":27.6,"calories":121.97,"co2":456.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":2.0,"distlm":3.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":22.0,"cost":12.0,"calories":22.08,"co2":324.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":2.0,"distlm":2.0},"C":{"fm1":"WALK","fm2":"BUS","lm1":"E-SCOOTER","lm2":"UBER","time":29.68,"cost":58.93,"calories":105.1,"co2":420.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":3.0,"distlm":2.0},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":34.5,"cost":18.1,"calories":141.58,"co2":210.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":3.0}}},{"scenario":6,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":26.4,"calories":43.89,"co2":466.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":3.0,"distlm":3.0},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":40.3,"cost":68.25,"calories":150.1,"co2":468.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":3.0,"distlm":3.0},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":21.5,"cost":80.45,"calories":71.11,"co2":536.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":3.0,"distlm":3.0},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":16.89,"cost":22.0,"calories":90.66,"co2":340.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":7,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"AUTO","time":40.12,"cost":72.6,"calories":103.77,"co2":412.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":2.0,"distlm":3.0},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.44,"cost":54.0,"calories":67.41,"co2":420.5,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":3.0,"distlm":2.0},"C":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":26.44,"cost":15.6,"calories":153.49,"co2":210.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":0.5,"distlm":3.0},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":26.9,"cost":14.65,"calories":50.4,"co2":359.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":3.0,"distlm":1.0}}},{"scenario":8,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":35.44,"cost":24.83,"calories":197.25,"co2":270.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":2.0,"distlm":2.0},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"BUS","time":24.1,"cost":31.05,"calories":75.89,"co2":572.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":3.0,"distlm":3.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":32.0,"cost":26.0,"calories":31.28,"co2":420.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":30.44,"cost":40.0,"calories":58.21,"co2":276.5,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":9,"block":1,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":21.89,"cost":24.0,"calories":90.66,"co2":320.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":25.2,"cost":109.05,"calories":68.71,"co2":599.7,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"UBER","lm2":"NONE","time":33.9,"cost":58.65,"calories":54.08,"co2":489.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":15.67,"cost":42.33,"calories":36.35,"co2":210.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":10,"block":2,"alternatives":{"A":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"E-SCOOTER","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"NONE","time":23.89,"cost":18.0,"calories":134.14,"co2":300.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":16.67,"cost":38.13,"calories":37.47,"co2":346.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":18.94,"cost":32.0,"calories":64.65,"co2":420.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":11,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":18.0,"cost":49.2,"calories":36.16,"co2":435.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"WALK","lm1":"BUS","lm2":"NONE","time":53.67,"cost":12.0,"calories":277.5,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":20.89,"cost":12.0,"calories":88.82,"co2":170.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":23.47,"cost":76.03,"calories":45.81,"co2":399.8,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":12,"block":4,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"AUTO","lm2":"NONE","time":45.0,"cost":16.67,"calories":261.55,"co2":250.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":12.0,"cost":26.0,"calories":22.2,"co2":169.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"BUS","lm1":"WALK","lm2":"WALK","time":54.61,"cost":10.0,"calories":309.03,"co2":174.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":37.0,"cost":17.0,"calories":83.38,"co2":348.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":13,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":20.67,"cost":32.83,"calories":41.7,"co2":381.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":53.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":19.0,"cost":25.73,"calories":84.99,"co2":386.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":25.27,"cost":22.43,"calories":61.36,"co2":362.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":14,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":27.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"WALK","time":30.1,"cost":18.97,"calories":65.67,"co2":232.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"E-SCOOTER","time":61.17,"cost":15.6,"calories":366.34,"co2":210.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":15.94,"cost":24.0,"calories":55.09,"co2":290.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":15,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":48.58,"cost":52.65,"calories":209.45,"co2":258.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":22.94,"cost":56.0,"calories":72.01,"co2":380.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":30.78,"cost":24.0,"calories":175.8,"co2":300.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":23.47,"cost":28.93,"calories":32.94,"co2":465.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":16,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":28.2,"cost":83.1,"calories":37.16,"co2":418.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"WALK","lm2":"AUTO","time":31.44,"cost":40.6,"calories":162.69,"co2":370.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":38.0,"cost":21.23,"calories":165.9,"co2":140.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"BUS","lm2":"NONE","time":23.6,"cost":15.1,"calories":55.41,"co2":394.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":17,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"UBER","time":25.04,"cost":43.1,"calories":115.54,"co2":346.9,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"BUS","time":32.08,"cost":33.83,"calories":107.39,"co2":410.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"AUTO","lm2":"NONE","time":26.17,"cost":48.93,"calories":123.19,"co2":423.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"WALK","time":34.28,"cost":11.87,"calories":207.25,"co2":150.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":18,"block":2,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":27.89,"cost":18.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"AUTO","time":24.33,"cost":56.97,"calories":47.4,"co2":357.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"UBER","lm2":"NONE","time":16.2,"cost":107.1,"calories":42.68,"co2":470.2,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"UBER","time":22.4,"cost":70.13,"calories":103.49,"co2":481.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":19,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"UBER","lm2":"NONE","time":22.89,"cost":72.0,"calories":101.7,"co2":369.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":38.89,"cost":0.0,"calories":177.09,"co2":0.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"AUTO","lm1":"BUS","lm2":"NONE","time":15.94,"cost":29.0,"calories":59.13,"co2":276.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":30.5,"cost":21.6,"calories":121.97,"co2":348.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":20,"block":4,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":24.27,"cost":46.93,"calories":25.21,"co2":350.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":49.33,"cost":24.83,"calories":282.39,"co2":149.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":34.89,"cost":12.0,"calories":96.18,"co2":200.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"UBER","lm2":"NONE","time":25.5,"cost":63.6,"calories":121.97,"co2":456.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":21,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"WALK","time":25.5,"cost":15.87,"calories":44.34,"co2":162.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":24.57,"cost":35.98,"calories":75.71,"co2":443.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"AUTO","time":29.42,"cost":74.75,"calories":118.12,"co2":464.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":37.42,"cost":35.0,"calories":85.93,"co2":384.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":22,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":18.33,"cost":50.17,"calories":72.64,"co2":349.33,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"WALK","time":21.09,"cost":56.1,"calories":111.26,"co2":172.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":32.2,"cost":32.4,"calories":43.89,"co2":574.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"AUTO","lm2":"NONE","time":28.6,"cost":57.1,"calories":47.09,"co2":482.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":23,"block":3,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":20.67,"cost":48.83,"calories":32.5,"co2":272.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"WALK","time":32.5,"cost":29.33,"calories":184.88,"co2":350.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":35.42,"cost":15.0,"calories":91.45,"co2":399.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":19.13,"cost":65.32,"calories":55.51,"co2":358.3,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":24,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":25.8,"cost":102.65,"calories":57.58,"co2":460.3,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"2W","fm2":"NONE","lm1":"E-SCOOTER","lm2":"UBER","time":13.27,"cost":42.93,"calories":23.37,"co2":273.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":30.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"AUTO","lm1":"WALK","lm2":"NONE","time":25.83,"cost":25.0,"calories":136.91,"co2":160.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":25,"block":1,"alternatives":{"A":{"fm1":"WALK","fm2":"NONE","lm1":"E-SCOOTER","lm2":"BUS","time":14.41,"cost":16.93,"calories":64.47,"co2":219.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":42.78,"cost":18.0,"calories":186.84,"co2":150.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"UBER","time":30.6,"cost":78.5,"calories":55.65,"co2":460.6,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":36.78,"cost":12.0,"calories":177.64,"co2":92.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":26,"block":2,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":31.5,"cost":17.6,"calories":114.61,"co2":256.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"UBER","lm2":"NONE","time":30.5,"cost":109.25,"calories":57.03,"co2":593.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"BUS","time":26.83,"cost":13.0,"calories":138.75,"co2":174.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":21.67,"cost":39.63,"calories":78.38,"co2":208.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":27,"block":3,"alternatives":{"A":{"fm1":"CAR","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":27.67,"cost":45.33,"calories":23.31,"co2":459.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"UBER","lm1":"BUS","lm2":"NONE","time":18.2,"cost":39.1,"calories":44.48,"co2":288.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"WALK","time":50.44,"cost":24.83,"calories":197.25,"co2":280.33,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":52.67,"cost":10.0,"calories":150.46,"co2":138.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":28,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"NONE","time":34.57,"cost":25.98,"calories":75.71,"co2":443.6,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"BUS","time":32.94,"cost":13.5,"calories":145.56,"co2":174.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":14.67,"cost":31.33,"calories":38.19,"co2":323.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"WALK","time":38.67,"cost":10.0,"calories":120.46,"co2":138.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":29,"block":1,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"NONE","time":13.94,"cost":10.0,"calories":80.25,"co2":170.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":24.86,"cost":37.5,"calories":120.22,"co2":240.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"BUS","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":37.9,"cost":38.65,"calories":92.04,"co2":543.6,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"BUS","time":22.7,"cost":57.65,"calories":73.31,"co2":552.8,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}},{"scenario":30,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"BUS","time":21.54,"cost":13.1,"calories":82.3,"co2":336.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.17,"cost":56.5,"calories":106.92,"co2":276.75,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":26.0,"cost":30.0,"calories":38.64,"co2":420.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":25.67,"cost":38.57,"calories":100.93,"co2":289.33,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":31,"block":3,"alternatives":{"A":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"UBER","time":37.18,"cost":56.4,"calories":199.81,"co2":341.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"NONE","time":30.54,"cost":15.1,"calories":138.26,"co2":162.4,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"BUS","time":19.67,"cost":52.03,"calories":48.02,"co2":391.4,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"CAR","fm2":"NONE","lm1":"UBER","lm2":"NONE","time":28.0,"cost":90.0,"calories":33.12,"co2":460.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":32,"block":4,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"BUS","lm2":"NONE","time":14.0,"cost":14.0,"calories":25.76,"co2":300.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"B":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"E-SCOOTER","time":32.0,"cost":31.73,"calories":90.51,"co2":509.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"WALK","time":22.3,"cost":64.52,"calories":76.15,"co2":328.3,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"BUS","lm1":"WALK","lm2":"AUTO","time":35.54,"cost":32.1,"calories":80.46,"co2":322.4,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":33,"block":1,"alternatives":{"A":{"fm1":"CYCLE","fm2":"AUTO","lm1":"WALK","lm2":"UBER","time":33.67,"cost":91.25,"calories":116.74,"co2":500.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"AUTO","time":26.0,"cost":55.2,"calories":41.68,"co2":558.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"C":{"fm1":"WALK","fm2":"E-SCOOTER","lm1":"E-SCOOTER","lm2":"NONE","time":16.33,"cost":26.4,"calories":90.28,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"WALK","lm2":"E-SCOOTER","time":25.2,"cost":48.83,"calories":100.07,"co2":312.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":34,"block":2,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"AUTO","time":23.87,"cost":67.23,"calories":46.54,"co2":380.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"NONE","lm1":"AUTO","lm2":"NONE","time":33.33,"cost":24.17,"calories":98.08,"co2":210.67,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":20.17,"cost":60.0,"calories":81.79,"co2":399.75,"safety":"Moderate safety (some lighting and moderate security)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"E-SCOOTER","time":26.5,"cost":65.25,"calories":89.47,"co2":524.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"No parking available","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0}}},{"scenario":35,"block":3,"alternatives":{"A":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"AUTO","time":25.94,"cost":29.0,"calories":59.13,"co2":252.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"Limited parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"B":{"fm1":"WALK","fm2":"WALK","lm1":"E-SCOOTER","lm2":"BUS","time":35.24,"cost":16.93,"calories":192.18,"co2":219.2,"safety":"Moderate safety (some lighting and moderate security)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"CAR","fm2":"NONE","lm1":"E-SCOOTER","lm2":"NONE","time":13.0,"cost":24.0,"calories":30.52,"co2":423.0,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"D":{"fm1":"CYCLE","fm2":"UBER","lm1":"AUTO","lm2":"NONE","time":27.47,"cost":85.98,"calories":51.44,"co2":471.63,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0}}},{"scenario":36,"block":4,"alternatives":{"A":{"fm1":"CYCLE","fm2":"UBER","lm1":"E-SCOOTER","lm2":"NONE","time":17.53,"cost":47.77,"calories":54.45,"co2":272.2,"safety":"Low safety (poor lighting and unsafe surroundings)","parking":"Limited parking available","traffic":"Heavy traffic (congested roads)","distfm":1.0,"distlm":1.0},"B":{"fm1":"CYCLE","fm2":"AUTO","lm1":"E-SCOOTER","lm2":"WALK","time":24.5,"cost":50.98,"calories":114.42,"co2":364.0,"safety":"Moderate safety (some lighting and moderate security)","parking":"Easy parking available near the station","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0},"C":{"fm1":"2W","fm2":"NONE","lm1":"WALK","lm2":"UBER","time":27.44,"cost":42.0,"calories":61.89,"co2":322.5,"safety":"High safety (well-lit streets and CCTV present)","parking":"Easy parking available near the station","traffic":"Moderate traffic","distfm":1.0,"distlm":1.0},"D":{"fm1":"WALK","fm2":"WALK","lm1":"WALK","lm2":"AUTO","time":31.81,"cost":37.5,"calories":162.79,"co2":240.0,"safety":"High safety (well-lit streets and CCTV present)","parking":"No parking available","traffic":"Low traffic (smooth travel)","distfm":1.0,"distlm":1.0}}}];
 
-const $ = id => document.getElementById(id);
+// Block → Scenario mapping (matches original survey design)
+const blockToScenarios = {
+  1:[1,5,9,13,17,21,25,29,33],
+  2:[2,6,10,14,18,22,26,30,34],
+  3:[3,7,11,15,19,23,27,31,35],
+  4:[4,8,12,16,20,24,28,32,36]
+};
+
+const $ = function(id){ return document.getElementById(id); };
 const ALL_SCREENS = ["screen-welcome","screen-builder","screen-result","screen-block","screen-survey","screen-latent","screen-thankyou"];
 
 function showScreen(id) {
-  ALL_SCREENS.forEach(function(s) { var el=$(s); if(el) el.style.display="none"; });
+  ALL_SCREENS.forEach(function(s){ var el=$(s); if(el) el.style.display="none"; });
   var t=$(id);
   if(t){ t.style.display=""; t.style.animation="none"; setTimeout(function(){ t.style.animation=""; },10); }
   window.scrollTo({top:0,behavior:"smooth"});
-  var stepMap = {"screen-welcome":1,"screen-builder":2,"screen-result":3,"screen-block":4,"screen-survey":4,"screen-latent":5,"screen-thankyou":5};
-  var active = stepMap[id]||0;
-  [1,2,3,4,5].forEach(function(n) {
+  var stepMap={"screen-welcome":1,"screen-builder":2,"screen-result":3,"screen-block":4,"screen-survey":4,"screen-latent":5,"screen-thankyou":5};
+  var active=stepMap[id]||0;
+  [1,2,3,4,5].forEach(function(n){
     var el=$("step"+n);
     if(!el) return;
-    el.className = "step" + (n < active ? " done" : n===active ? " active" : "");
+    el.className="step"+(n<active?" done":n===active?" active":"");
   });
 }
 
@@ -455,7 +515,6 @@ const MODES = {
   bus:        {label:"🚌 Bus",            co2:29, cal:1.84, speedKmh:15},
 };
 
-// Latent questions
 const LATENT_QS = [
   "I like trying new ways of doing things before most other people do.",
   "I am open to trying new travel options when they become available.",
@@ -468,45 +527,32 @@ const LATENT_QS = [
   "The experience of travelling can sometimes be interesting and engaging for me.",
 ];
 
-// Block mapping
-const blockToScenarios = {
-  1:[1,5,9,13,17,21,25,29,33],
-  2:[2,6,10,14,18,22,26,30,34],
-  3:[3,7,11,15,19,23,27,31,35],
-  4:[4,8,12,16,20,24,28,32,36]
-};
-
-// App state
 var state = {
-  userName:"", segments:[], lastSession:null, trackerTotals:null,
+  userName:"", tripPurpose:"",
+  segments:[], lastSession:null, trackerTotals:null,
   currentBlock:null, currentScenarioIndex:-1, currentScenarioNum:null,
-  currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null,
-  awaitingSwitch:false,
+  currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null, awaitingSwitch:false,
 };
 
 const STORAGE_KEY = "ecocommute_sessions";
 const SURVEY_KEY  = "ecocommute_survey_responses";
 const round2 = function(n){ return Math.round(n*100)/100; };
-const randFactor = function(){ return 0.9 + Math.random()*0.2; };
 
 // ── SCREEN 1: WELCOME ─────────────────────────────────────────────
 var nameInput = $("user-name");
 var btnStart  = $("btn-start");
-
-nameInput.addEventListener("input", function() {
-  btnStart.disabled = !nameInput.value.trim();
-});
-nameInput.addEventListener("keydown", function(e) {
-  if(e.key === "Enter" && nameInput.value.trim()) startBuilder();
-});
+nameInput.addEventListener("input", function(){ btnStart.disabled = !nameInput.value.trim(); });
+nameInput.addEventListener("keydown", function(e){ if(e.key==="Enter" && nameInput.value.trim()) startBuilder(); });
 btnStart.addEventListener("click", startBuilder);
 
 function startBuilder() {
   state.userName = nameInput.value.trim();
   state.segments = [];
+  state.tripPurpose = "";
   $("disp-name").textContent = state.userName;
   populateModeSelect();
   renderChain();
+  updateTotals();
   showScreen("screen-builder");
 }
 
@@ -514,30 +560,55 @@ function startBuilder() {
 function populateModeSelect() {
   var sel = $("sel-mode");
   sel.innerHTML = '<option value="">— Select mode —</option>';
-  Object.keys(MODES).forEach(function(id) {
+  Object.keys(MODES).forEach(function(id){
     var o = document.createElement("option");
     o.value = id; o.textContent = MODES[id].label;
     sel.appendChild(o);
   });
 }
 
+// Trip purpose "Other" reveal
+$("sel-purpose").addEventListener("change", function(){
+  $("inp-purpose-other").style.display = this.value === "Other" ? "block" : "none";
+  checkFinishBtn();
+});
+
 function checkAddBtn() {
   var mode = $("sel-mode").value;
   var time = parseFloat($("inp-time").value);
   $("btn-add").disabled = !(mode && time > 0);
+  // Auto-zero cost for walking
+  if(mode === "walking") {
+    $("inp-cost").value = "0";
+    $("inp-cost").disabled = true;
+  } else {
+    $("inp-cost").disabled = false;
+  }
+}
+function checkFinishBtn() {
+  $("btn-finish").disabled = !(state.segments.length > 0 && $("sel-purpose").value);
 }
 $("sel-mode").addEventListener("change", checkAddBtn);
 $("inp-time").addEventListener("input", checkAddBtn);
-$("inp-cost").addEventListener("input", checkAddBtn);
-$("inp-wait").addEventListener("input", checkAddBtn);
 
-$("btn-add").addEventListener("click", function() {
+function updateTotals() {
+  var segs = state.segments;
+  if(!segs.length){ $("total-summary").style.display="none"; return; }
+  $("total-summary").style.display = "";
+  var t=0, c=0, co=0, cal=0;
+  segs.forEach(function(s){ t+=s.totalMin; c+=s.cost; co+=s.co2; cal+=s.calories; });
+  $("total-time-disp").textContent = Math.round(t);
+  $("total-cost-disp").textContent = round2(c);
+  $("total-co2-disp").textContent  = round2(co);
+  $("total-cal-disp").textContent  = round2(cal);
+}
+
+$("btn-add").addEventListener("click", function(){
   var modeId  = $("sel-mode").value;
   var minutes = parseFloat($("inp-time").value);
   var cost    = parseFloat($("inp-cost").value) || 0;
   var waitMin = parseFloat($("inp-wait").value) || 0;
   if(!modeId || minutes <= 0) return;
-
   var d = MODES[modeId];
   state.segments.push({
     mode: modeId,
@@ -546,442 +617,412 @@ $("btn-add").addEventListener("click", function() {
     waitMin: waitMin,
     totalMin: minutes + waitMin,
     cost: round2(cost),
-    co2: round2(d.co2 * randFactor() * minutes),
-    calories: round2(d.cal * randFactor() * minutes),
+    co2: round2(d.co2 * minutes),
+    calories: round2(d.cal * minutes),
     distKm: round2(d.speedKmh * minutes / 60),
     speedKmh: d.speedKmh,
   });
-
   $("sel-mode").value = "";
   $("inp-time").value = "";
   $("inp-cost").value = "";
   $("inp-wait").value = "0";
   $("btn-add").disabled = true;
-  $("btn-finish").disabled = false;
+  $("inp-cost").disabled = false;
   renderChain();
+  updateTotals();
+  checkFinishBtn();
 });
 
 function renderChain(container, segs, removable) {
   container = container || "segment-chain";
   segs      = segs      || state.segments;
   removable = (removable === undefined) ? true : removable;
-
   var chain = $(container);
   if(!chain) return;
   var empty = $("empty-state");
   chain.innerHTML = "";
-
-  if(segs.length === 0) {
-    if(empty) empty.style.display = "";
-    return;
-  }
+  if(segs.length === 0){ if(empty) empty.style.display=""; return; }
   if(empty) empty.style.display = "none";
-
-  segs.forEach(function(seg, i) {
-    var row = document.createElement("div");
-    row.className = "seg-row";
-
-    var lineCol = document.createElement("div");
-    lineCol.className = "seg-line-col";
-    var bubble = document.createElement("div");
-    bubble.className = "seg-bubble";
-    bubble.textContent = i + 1;
-    lineCol.appendChild(bubble);
-    if(i < segs.length - 1) {
-      var conn = document.createElement("div");
-      conn.className = "seg-connector";
-      lineCol.appendChild(conn);
+  segs.forEach(function(seg, i){
+    var row = document.createElement("div"); row.className="seg-row";
+    var lc = document.createElement("div"); lc.className="seg-line-col";
+    var bub = document.createElement("div"); bub.className="seg-bubble"; bub.textContent=i+1;
+    lc.appendChild(bub);
+    if(i < segs.length-1){ var cn=document.createElement("div"); cn.className="seg-connector"; lc.appendChild(cn); }
+    var card=document.createElement("div"); card.className="seg-card";
+    var info=document.createElement("div"); info.className="seg-info";
+    var ml=document.createElement("div"); ml.className="seg-mode-label"; ml.textContent=seg.label;
+    var bd=document.createElement("div"); bd.className="seg-badges";
+    var tw = seg.waitMin>0 ? seg.minutes+" min + "+seg.waitMin+" wait" : seg.minutes+" min";
+    bd.innerHTML='<span class="badge blue">⏱ '+tw+'</span>'
+      +'<span class="badge teal">📍 '+seg.distKm+' km</span>'
+      +'<span class="badge amber">₹ '+seg.cost+'</span>'
+      +'<span class="badge red">🌫 '+seg.co2+'g</span>'
+      +'<span class="badge green">🔥 '+seg.calories+' kcal</span>';
+    info.appendChild(ml); info.appendChild(bd); card.appendChild(info);
+    if(removable){
+      var rb=document.createElement("button"); rb.type="button"; rb.className="btn btn-danger-ghost remove-btn";
+      rb.textContent="✕ Remove"; rb.dataset.idx=i; card.appendChild(rb);
     }
-
-    var card = document.createElement("div");
-    card.className = "seg-card";
-    var info = document.createElement("div");
-    info.className = "seg-info";
-    var modeLabel = document.createElement("div");
-    modeLabel.className = "seg-mode-label";
-    modeLabel.textContent = seg.label;
-    var badges = document.createElement("div");
-    badges.className = "seg-badges";
-    var timeText = seg.waitMin > 0
-      ? seg.minutes + " min + " + seg.waitMin + " wait"
-      : seg.minutes + " min";
-    badges.innerHTML =
-      '<span class="badge blue">⏱ ' + timeText + '</span>' +
-      '<span class="badge teal">📍 ' + seg.distKm + ' km</span>' +
-      '<span class="badge amber">₹ ' + seg.cost + '</span>' +
-      '<span class="badge red">🌫 ' + seg.co2 + 'g</span>' +
-      '<span class="badge green">🔥 ' + seg.calories + ' kcal</span>';
-    info.appendChild(modeLabel);
-    info.appendChild(badges);
-    card.appendChild(info);
-
-    if(removable) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn-danger-ghost remove-btn";
-      btn.textContent = "✕ Remove";
-      btn.dataset.idx = i;
-      card.appendChild(btn);
-    }
-
-    row.appendChild(lineCol);
-    row.appendChild(card);
-    chain.appendChild(row);
+    row.appendChild(lc); row.appendChild(card); chain.appendChild(row);
   });
-
-  if(removable) {
-    chain.querySelectorAll(".remove-btn").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        state.segments.splice(parseInt(btn.dataset.idx), 1);
-        $("btn-finish").disabled = state.segments.length === 0;
-        renderChain();
+  if(removable){
+    chain.querySelectorAll(".remove-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        state.segments.splice(parseInt(btn.dataset.idx),1);
+        renderChain(); updateTotals(); checkFinishBtn();
       });
     });
   }
 }
 
-$("btn-back-welcome").addEventListener("click", function() { showScreen("screen-welcome"); });
+$("btn-back-welcome").addEventListener("click", function(){ showScreen("screen-welcome"); });
 
-$("btn-finish").addEventListener("click", function() {
+$("btn-finish").addEventListener("click", function(){
+  var purposeVal = $("sel-purpose").value;
+  if(!purposeVal){ alert("Please select the trip purpose."); return; }
+  if(purposeVal === "Other"){
+    var otherText = $("inp-purpose-other").value.trim();
+    state.tripPurpose = "Other: " + (otherText || "not specified");
+  } else {
+    state.tripPurpose = purposeVal;
+  }
   var segs = state.segments;
-  var totalTime  = segs.reduce(function(s,x){ return s + x.totalMin; }, 0);
-  var totalCost  = round2(segs.reduce(function(s,x){ return s + x.cost; }, 0));
-  var totalCO2   = round2(segs.reduce(function(s,x){ return s + x.co2; }, 0));
-  var totalCal   = round2(segs.reduce(function(s,x){ return s + x.calories; }, 0));
-  var totalDist  = round2(segs.reduce(function(s,x){ return s + x.distKm; }, 0));
-
+  var totalTime  = segs.reduce(function(s,x){ return s+x.totalMin; },0);
+  var totalCost  = round2(segs.reduce(function(s,x){ return s+x.cost; },0));
+  var totalCO2   = round2(segs.reduce(function(s,x){ return s+x.co2; },0));
+  var totalCal   = round2(segs.reduce(function(s,x){ return s+x.calories; },0));
+  var totalDist  = round2(segs.reduce(function(s,x){ return s+x.distKm; },0));
+  // Collect mode list for CSV
+  var modeList = segs.map(function(s){ return s.mode; });
   var session = {
     userName: state.userName,
+    tripPurpose: state.tripPurpose,
     timestamp: new Date().toLocaleString("en-IN"),
     segments: segs.slice(),
+    modeList: modeList,
     totalTime: totalTime,
-    totalTravel: segs.reduce(function(s,x){ return s + x.minutes; }, 0),
-    totalWait: segs.reduce(function(s,x){ return s + x.waitMin; }, 0),
-    totalCost: totalCost,
-    totalCO2: totalCO2,
-    totalCalories: totalCal,
-    totalDist: totalDist,
+    totalTravel: segs.reduce(function(s,x){ return s+x.minutes; },0),
+    totalWait: segs.reduce(function(s,x){ return s+x.waitMin; },0),
+    totalCost: totalCost, totalCO2: totalCO2, totalCalories: totalCal, totalDist: totalDist,
   };
-
   state.lastSession = session;
-  state.trackerTotals = {
-    totalTime: totalTime, totalCost: totalCost,
-    totalCO2: totalCO2,   totalCal: totalCal, totalDist: totalDist,
-  };
-
+  state.trackerTotals = { totalTime:totalTime, totalCost:totalCost, totalCO2:totalCO2, totalCal:totalCal, totalDist:totalDist };
   $("result-name").textContent = state.userName;
-  $("result-sub").textContent  = segs.length + " leg" + (segs.length > 1 ? "s" : "") + " · " + totalDist + " km · " + session.timestamp;
-  $("res-time").textContent  = totalTime + " min";
-  $("res-cost").textContent  = "₹" + totalCost;
-  $("res-co2").textContent   = totalCO2 + "g";
+  $("result-sub").textContent  = "Purpose: "+state.tripPurpose+" · "+segs.length+" leg"+(segs.length>1?"s":"")+" · "+totalDist+" km · "+session.timestamp;
+  $("res-time").textContent  = totalTime+" min";
+  $("res-cost").textContent  = "₹"+totalCost;
+  $("res-co2").textContent   = totalCO2+"g";
   $("res-cal").textContent   = totalCal;
-
   renderChain("result-segments", segs, false);
   saveTrackerSession(session);
   showScreen("screen-result");
 });
 
 // ── SCREEN 3: RESULTS ─────────────────────────────────────────────
-$("btn-new").addEventListener("click", function() {
-  nameInput.value = "";
-  btnStart.disabled = true;
-  state = {
-    userName:"", segments:[], lastSession:null, trackerTotals:null,
-    currentBlock:null, currentScenarioIndex:-1, currentScenarioNum:null,
-    currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null, awaitingSwitch:false,
-  };
+$("btn-new").addEventListener("click", function(){
+  nameInput.value=""; btnStart.disabled=true;
+  state={userName:"",tripPurpose:"",segments:[],lastSession:null,trackerTotals:null,
+    currentBlock:null,currentScenarioIndex:-1,currentScenarioNum:null,
+    currentBlockChoices:[],awaitingConfirm:false,lastChosenAlt:null,awaitingSwitch:false};
   showScreen("screen-welcome");
 });
-
-$("btn-redownload").addEventListener("click", function() {
-  var sessions = loadTrackerSessions();
-  if(!sessions.length) { alert("No tracker data saved yet."); return; }
-  downloadTrackerCSV(sessions);
+$("btn-redownload").addEventListener("click", function(){
+  var ss=loadTrackerSessions();
+  if(!ss.length){alert("No tracker data saved yet.");return;}
+  downloadTrackerCSV(ss);
 });
-
-$("btn-go-survey").addEventListener("click", function() {
-  $("disp-name-block").textContent = state.userName;
+$("btn-go-survey").addEventListener("click", function(){
+  $("disp-name-block").textContent=state.userName;
   showScreen("screen-block");
 });
 
 // ── SCREEN 4: BLOCK SELECTOR ──────────────────────────────────────
-$("btn-back-result").addEventListener("click", function() { showScreen("screen-result"); });
-
-document.querySelectorAll(".block-card").forEach(function(card) {
-  card.addEventListener("click", function() {
-    state.currentBlock = parseInt(card.dataset.block);
-    state.currentBlockChoices = [];
-    state.currentScenarioIndex = 0;
-    state.currentScenarioNum = blockToScenarios[state.currentBlock][0];
-    state.awaitingConfirm = false;
-    state.lastChosenAlt = null;
-    state.awaitingSwitch = false;
+$("btn-back-result").addEventListener("click", function(){ showScreen("screen-result"); });
+document.querySelectorAll(".block-card").forEach(function(card){
+  card.addEventListener("click", function(){
+    state.currentBlock=parseInt(card.dataset.block);
+    state.currentBlockChoices=[];
+    state.currentScenarioIndex=0;
+    state.currentScenarioNum=blockToScenarios[state.currentBlock][0];
+    state.awaitingConfirm=false; state.lastChosenAlt=null; state.awaitingSwitch=false;
     loadScenario(state.currentScenarioNum);
     showScreen("screen-survey");
   });
 });
 
+// ── SCENARIO CALCULATION ENGINE ───────────────────────────────────
+// All values shown in the table AND in the comparison panel are computed
+// here from alt.distfm / alt.distlm — never from the JSON pre-stored values.
+// This ensures table display and comparison are always identical.
+
+var modeKcal = {"WALK":6.13,"CYCLE":6.13,"E-SCOOTER":4.90,"AUTO":1.84,"UBER":1.84,"CAR":1.84,"2W":1.84,"BUS":1.84,"NONE":0};
+var modeCo2  = {"WALK":0,"CYCLE":0,"E-SCOOTER":30,"AUTO":32,"UBER":41,"CAR":41,"2W":23,"BUS":29,"NONE":0};
+var modeSpd  = {"WALK":4.32,"CYCLE":12,"E-SCOOTER":18,"AUTO":18,"UBER":20,"2W":30,"CAR":20,"BUS":15,"NONE":0};
+var modeCost = {"NONE":0,"WALK":0,"CYCLE":0.5,"E-SCOOTER":0.8,"AUTO":5,"UBER":8,"BUS":1.0,"2W":1.0,"CAR":2};
+
+function getModeLevel(m) {
+  if(m==="NONE")  return 0;
+  if(m==="WALK")  return 1;
+  if(m==="CYCLE") return 2;
+  if(m==="E-SCOOTER") return 3;
+  return 4; // CAR, 2W, AUTO, UBER, BUS
+}
+
+function getSplitRatio(diff) {
+  if(diff===0) return [0.5, 0.5];
+  if(diff===1) return [0.6, 0.4];
+  if(diff===2) return [0.7, 0.3];
+  return [0.75, 0.25];
+}
+
+// First mile: fm1 is the "weaker" leg (starts the trip, usually shorter/slower)
+// fm2 gets the proportionally bigger share when modes differ
+function splitFirstMile(fm1, fm2, total) {
+  if(!fm2 || fm2==="NONE" || fm1===fm2) return [total, 0];
+  var diff = Math.abs(getModeLevel(fm1) - getModeLevel(fm2));
+  var r = getSplitRatio(diff);
+  return [r[0]*total, r[1]*total]; // fm1 gets weak share, fm2 gets strong share
+}
+
+// Last mile: stronger mode gets bigger share
+function splitLastMile(lm1, lm2, total) {
+  if(!lm2 || lm2==="NONE" || lm1===lm2) return [total, 0];
+  var l1=getModeLevel(lm1), l2=getModeLevel(lm2);
+  var diff=Math.abs(l1-l2);
+  var r=getSplitRatio(diff);
+  // stronger mode (higher level) gets r[0] (the bigger share)
+  if(l1>=l2) return [r[0]*total, r[1]*total];
+  else        return [r[1]*total, r[0]*total];
+}
+
+function calcModeMetrics(mode, distKm) {
+  if(!mode || mode==="NONE" || distKm<=0) return {time:0,cost:0,cal:0,co2:0};
+  var spd = modeSpd[mode]||4.32;
+  var t   = (distKm/spd)*60; // minutes
+  return {
+    time: t,
+    cost: t*(modeCost[mode]||0),
+    cal:  t*(modeKcal[mode]||0),
+    co2:  t*(modeCo2[mode]||0),
+  };
+}
+
+// THE FIX: use alt.distfm and alt.distlm (per alternative), not scenario-level
+function calcAlt(alt) {
+  var distfm = alt.distfm;
+  var distlm = alt.distlm;
+  if(!distfm || !distlm){ console.error("Missing distfm/distlm on alt:", alt); return {time:0,cost:0,calories:0,co2:0}; }
+
+  var fmSplit = splitFirstMile(alt.fm1, alt.fm2, distfm);
+  var lmSplit = splitLastMile(alt.lm1, alt.lm2, distlm);
+
+  var fm1m = calcModeMetrics(alt.fm1, fmSplit[0]);
+  var fm2m = calcModeMetrics(alt.fm2, fmSplit[1]);
+  var lm1m = calcModeMetrics(alt.lm1, lmSplit[0]);
+  var lm2m = calcModeMetrics(alt.lm2, lmSplit[1]);
+
+  // Metro is fixed
+  var metroTime=15, metroCost=20;
+
+  return {
+    time:     Math.round((fm1m.time + fm2m.time + metroTime + lm1m.time + lm2m.time)*10)/10,
+    cost:     Math.round(fm1m.cost + fm2m.cost + metroCost  + lm1m.cost + lm2m.cost),
+    calories: Math.round(fm1m.cal  + fm2m.cal  + lm1m.cal  + lm2m.cal),
+    co2:      Math.round(fm1m.co2  + fm2m.co2  + lm1m.co2  + lm2m.co2),
+  };
+}
+
 // ── SCREEN 5: SCENARIO SURVEY ─────────────────────────────────────
 function buildModes(alt) {
-  var p = [];
-  if(alt.fm1 && alt.fm1 !== "NONE") p.push(alt.fm1);
-  if(alt.fm2 && alt.fm2 !== "NONE") p.push(alt.fm2);
+  var p=[];
+  if(alt.fm1 && alt.fm1!=="NONE") p.push(alt.fm1);
+  if(alt.fm2 && alt.fm2!=="NONE") p.push(alt.fm2);
   p.push("METRO");
-  if(alt.lm1 && alt.lm1 !== "NONE") p.push(alt.lm1);
-  if(alt.lm2 && alt.lm2 !== "NONE") p.push(alt.lm2);
+  if(alt.lm1 && alt.lm1!=="NONE") p.push(alt.lm1);
+  if(alt.lm2 && alt.lm2!=="NONE") p.push(alt.lm2);
   return p;
 }
 
 function dot(val, type) {
-  if(type === "safety")  return val.includes("High") ? "🟢" : val.includes("Moderate") ? "🟡" : "🔴";
-  if(type === "traffic") return val.includes("Low")  ? "🟢" : val.includes("Moderate") ? "🟡" : "🔴";
-  if(type === "parking") return val.includes("Easy") ? "🟢" : val.includes("Limited")  ? "🟡" : "🔴";
+  if(type==="safety")  return val.includes("High")?"🟢":val.includes("Moderate")?"🟡":"🔴";
+  if(type==="traffic") return val.includes("Low") ?"🟢":val.includes("Moderate")?"🟡":"🔴";
+  if(type==="parking") return val.includes("Easy")?"🟢":val.includes("Limited") ?"🟡":"🔴";
   return "";
 }
 
 function loadScenario(num) {
-  var sc = null;
-  for(var si=0;si<scenarios.length;si++){ if(scenarios[si].scenario===num){ sc=scenarios[si]; break; } }
+  var sc=null;
+  for(var i=0;i<scenarios.length;i++){ if(scenarios[i].scenario===num){sc=scenarios[i];break;} }
   if(!sc) return;
-
-  var scList = blockToScenarios[state.currentBlock];
-  var idx    = state.currentScenarioIndex;
-  var total  = scList.length;
-
-  $("scenarioTitle").textContent     = "Scenario " + num + " — Make Your Choice";
-  $("scenario-progress").textContent = (idx+1) + " of " + total;
-  $("progress-fill").style.width     = Math.round((idx / total) * 100) + "%";
-
-  // Show choice buttons, hide confirm panel
-  $("nextBtn").style.display    = "";
-  $("nextBtn").textContent      = "Submit Choice →";
-  $("confirmPanel").style.display = "none";
-
-  var tbody = $("choiceTable").querySelector("tbody");
-  tbody.innerHTML = "";
-
+  var scList=blockToScenarios[state.currentBlock];
+  var idx=state.currentScenarioIndex, total=scList.length;
+  $("scenarioTitle").textContent="Scenario "+num;
+  $("scenario-progress").textContent=(idx+1)+" of "+total;
+  $("progress-fill").style.width=Math.round((idx/total)*100)+"%";
+  $("nextBtn").style.display=""; $("nextBtn").textContent="Submit Choice →";
+  $("confirmPanel").style.display="none";
+  var tbody=$("choiceTable").querySelector("tbody");
+  tbody.innerHTML="";
   // Your journey reference row
-  var t = state.trackerTotals;
-  if(t) {
-    var yr = document.createElement("tr");
-    var yth = document.createElement("th");
-    yth.className = "attribute";
-    yth.textContent = "📍 Your Journey";
-    var ytd = document.createElement("td");
-    ytd.colSpan = 4;
-    ytd.className = "your-journey-cell";
-    ytd.textContent = "⏱ " + t.totalTime + " min  ·  ₹" + t.totalCost + "  ·  🌫 " + t.totalCO2 + "g CO₂  ·  🔥 " + t.totalCal + " kcal  ·  📍 " + t.totalDist + " km";
-    yr.appendChild(yth);
-    yr.appendChild(ytd);
-    tbody.appendChild(yr);
+  var t=state.trackerTotals;
+  if(t){
+    var yr=document.createElement("tr");
+    var yth=document.createElement("th"); yth.className="attribute"; yth.textContent="📍 Your Journey";
+    var ytd=document.createElement("td"); ytd.colSpan=4; ytd.className="your-journey-cell";
+    ytd.textContent="⏱ "+t.totalTime+" min  ·  ₹"+t.totalCost+"  ·  🌫 "+t.totalCO2+"g CO₂  ·  🔥 "+t.totalCal+" kcal  ·  📍 "+t.totalDist+" km";
+    yr.appendChild(yth); yr.appendChild(ytd); tbody.appendChild(yr);
   }
-
-  // Attribute rows
-  var alts = ["A","B","C","D"];
-  var rowDefs = [
-    { label:"Modes",      fn: function(a){ return buildModes(a).join(" → "); }, isMode:true },
-    { label:"Time (min)", fn: function(a){ return a.time.toFixed(1); } },
-    { label:"Cost (₹)",  fn: function(a){ return "₹" + Math.round(a.cost); } },
-    { label:"Calories",   fn: function(a){ return "" + Math.round(a.calories); } },
-    { label:"CO₂ (g)",   fn: function(a){ return "" + Math.round(a.co2); } },
-    { label:"Safety",     fn: function(a){ return dot(a.safety,"safety") + " " + a.safety.split("(")[0].trim(); } },
-    { label:"Parking",    fn: function(a){ return dot(a.parking,"parking") + " " + a.parking; } },
-    { label:"Traffic",    fn: function(a){ return dot(a.traffic,"traffic") + " " + a.traffic.split("(")[0].trim(); } },
+  var rowDefs=[
+    {label:"Modes",      fn:function(a){return buildModes(a).join(" → ");}, isMode:true},
+    {label:"Time (min)", fn:function(a){return calcAlt(a).time.toFixed(1);}},
+    {label:"Cost (₹)",   fn:function(a){return "₹"+calcAlt(a).cost;}},
+    {label:"Calories",   fn:function(a){return ""+calcAlt(a).calories;}},
+    {label:"CO₂ (g)",    fn:function(a){return ""+calcAlt(a).co2;}},
+    {label:"Safety",     fn:function(a){return dot(a.safety,"safety")+" "+a.safety.split("(")[0].trim();}},
+    {label:"Parking",    fn:function(a){return dot(a.parking,"parking")+" "+a.parking;}},
+    {label:"Traffic",    fn:function(a){return dot(a.traffic,"traffic")+" "+a.traffic.split("(")[0].trim();}},
   ];
-
-  rowDefs.forEach(function(row) {
-    var tr = document.createElement("tr");
-    var th = document.createElement("th");
-    th.className = "attribute";
-    th.textContent = row.label;
-    tr.appendChild(th);
-    alts.forEach(function(k) {
-      var td = document.createElement("td");
-      if(row.isMode) {
-        var div = document.createElement("div");
-        div.className = "mode-chain";
-        div.textContent = row.fn(sc.alternatives[k]);
-        td.appendChild(div);
-      } else {
-        td.textContent = row.fn(sc.alternatives[k]);
-      }
+  rowDefs.forEach(function(row){
+    var tr=document.createElement("tr");
+    var th=document.createElement("th"); th.className="attribute"; th.textContent=row.label; tr.appendChild(th);
+    ["A","B","C","D"].forEach(function(k){
+      var td=document.createElement("td");
+      if(row.isMode){ var d=document.createElement("div"); d.className="mode-chain"; d.textContent=row.fn(sc.alternatives[k]); td.appendChild(d); }
+      else td.textContent=row.fn(sc.alternatives[k]);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
-
   // Choice radio row
-  var cr = document.createElement("tr");
-  cr.className = "choice-row";
-  var chTh = document.createElement("th");
-  chTh.className = "attribute";
-  chTh.textContent = "Your Choice";
-  cr.appendChild(chTh);
-  alts.forEach(function(letter) {
-    var td = document.createElement("td");
-    var label = document.createElement("label");
-    label.className = "radio-label";
-    var input = document.createElement("input");
-    input.type = "radio";
-    input.name = "choice";
-    input.value = letter;
-    var span = document.createElement("span");
-    span.textContent = letter;
-    label.appendChild(input);
-    label.appendChild(span);
-    td.appendChild(label);
-    cr.appendChild(td);
+  var cr=document.createElement("tr"); cr.className="choice-row";
+  var chth=document.createElement("th"); chth.className="attribute"; chth.textContent="Your Choice"; cr.appendChild(chth);
+  ["A","B","C","D"].forEach(function(letter){
+    var td=document.createElement("td");
+    var label=document.createElement("label"); label.className="radio-label";
+    var inp=document.createElement("input"); inp.type="radio"; inp.name="choice"; inp.value=letter;
+    var span=document.createElement("span"); span.textContent=letter;
+    label.appendChild(inp); label.appendChild(span); td.appendChild(label); cr.appendChild(td);
   });
   tbody.appendChild(cr);
 }
 
-// Show comparison after choice is made
+// showChoiceConfirm: uses calcAlt(alt) — the SAME function used to build the table.
+// So the comparison values exactly match what was shown to the respondent.
 function showChoiceConfirm(sc, chosenLetter) {
-  var alt = sc.alternatives[chosenLetter];
-  var t   = state.trackerTotals;
-
-  // Highlight chosen column in the main table
-  var tbody = $("choiceTable").querySelector("tbody");
-  var rows  = tbody.querySelectorAll("tr");
-  var alts  = ["A","B","C","D"];
-  var chosenIdx = alts.indexOf(chosenLetter); // 0-based, +1 for th offset
-
-  rows.forEach(function(tr) {
-    var cells = tr.querySelectorAll("td");
-    cells.forEach(function(td, ci) {
-      if(ci === chosenIdx) {
-        td.style.background = "rgba(110,255,160,0.13)";
-        td.style.borderColor = "rgba(110,255,160,0.5)";
-      }
+  var alt=sc.alternatives[chosenLetter];
+  var calc=calcAlt(alt); // computed from alt.distfm / alt.distlm
+  var t=state.trackerTotals;
+  // Highlight chosen column
+  var tbody=$("choiceTable").querySelector("tbody");
+  var alts=["A","B","C","D"];
+  var ci=alts.indexOf(chosenLetter);
+  tbody.querySelectorAll("tr").forEach(function(tr){
+    tr.querySelectorAll("td").forEach(function(td,tdIdx){
+      if(tdIdx===ci){ td.style.background="rgba(110,255,160,0.13)"; td.style.borderColor="rgba(110,255,160,0.5)"; }
     });
   });
-
-  // Build confirm panel content
-  var panel = $("confirmPanel");
-  panel.innerHTML = "";
-
-  var title = document.createElement("div");
-  title.className = "confirm-title";
-  title.innerHTML = "You chose <strong>Option " + chosenLetter + "</strong> — here's how it compares to your actual journey:";
+  var panel=$("confirmPanel");
+  panel.innerHTML="";
+  var title=document.createElement("div"); title.className="confirm-title";
+  title.innerHTML="You chose <strong>Option "+chosenLetter+"</strong> — here's how it compares to your actual journey:";
   panel.appendChild(title);
-
-  var grid = document.createElement("div");
-  grid.className = "confirm-grid";
-
-  function mkCard(label, yours, chosen, lowerBetter) {
-    var yoursN  = parseFloat(yours);
-    var chosenN = parseFloat(chosen);
-    var better  = lowerBetter ? chosenN < yoursN : chosenN > yoursN;
-    var same    = Math.abs(chosenN - yoursN) < 0.01;
-    var arrow   = same ? "=" : (better ? "▼ better" : "▲ higher");
-    var arrowCls= same ? "" : (better ? "conf-better" : "conf-worse");
-    var c = document.createElement("div");
-    c.className = "confirm-card";
-    c.innerHTML =
-      '<div class="conf-label">' + label + '</div>' +
-      '<div class="conf-row"><span class="conf-yours">You: ' + yours + '</span><span class="conf-arrow ' + arrowCls + '">' + arrow + '</span><span class="conf-chosen">Opt ' + chosenLetter + ': ' + chosen + '</span></div>';
+  // Comparison grid using EXACTLY the pre-stored values shown in the table
+  var grid=document.createElement("div"); grid.className="confirm-grid";
+  function mkCard(label, yoursRaw, chosenRaw, lowerBetter) {
+    var yoursN=parseFloat(yoursRaw), chosenN=parseFloat(chosenRaw);
+    var diff=chosenN-yoursN;
+    var better=lowerBetter ? diff<0 : diff>0;
+    var same=Math.abs(diff)<0.5;
+    var arrow=same?"(same)":(better?"▼ better":"▲ higher");
+    var arrowCls=same?"conf-same":(better?"conf-better":"conf-worse");
+    var c=document.createElement("div"); c.className="confirm-card";
+    c.innerHTML='<div class="conf-label">'+label+'</div>'
+      +'<div class="conf-row"><span class="conf-yours">Yours: '+yoursRaw+'</span>'
+      +'<span class="conf-arrow '+arrowCls+'">'+arrow+'</span>'
+      +'<span class="conf-chosen">Opt '+chosenLetter+': '+chosenRaw+'</span></div>';
     return c;
   }
-
-  if(t) {
-    grid.appendChild(mkCard("⏱ Time (min)",   t.totalTime, alt.time.toFixed(1),  true));
-    grid.appendChild(mkCard("₹ Cost",          "₹"+t.totalCost, "₹"+Math.round(alt.cost), true));
-    grid.appendChild(mkCard("🌫 CO₂ (g)",      t.totalCO2, Math.round(alt.co2),  true));
-    grid.appendChild(mkCard("🔥 Calories",     t.totalCal, Math.round(alt.calories), false));
+  if(t){
+    grid.appendChild(mkCard("⏱ Time (min)",  t.totalTime+"",    calc.time.toFixed(1),  true));
+    grid.appendChild(mkCard("₹ Cost",         "₹"+t.totalCost,  "₹"+calc.cost,         true));
+    grid.appendChild(mkCard("🌫 CO₂ (g)",     t.totalCO2+"",    ""+calc.co2,            true));
+    grid.appendChild(mkCard("🔥 Calories",    t.totalCal+"",    ""+calc.calories,       false));
   }
   panel.appendChild(grid);
-
-  var modeRow = document.createElement("div");
-  modeRow.className = "confirm-modes";
-  modeRow.innerHTML = "<strong>Mode chain:</strong> <span class='mode-chain'>" + buildModes(alt).join(" → ") + "</span>"
-    + " &nbsp;·&nbsp; " + dot(alt.safety,"safety") + " " + alt.safety.split("(")[0].trim()
-    + " &nbsp;·&nbsp; " + dot(alt.traffic,"traffic") + " " + alt.traffic.split("(")[0].trim()
-    + " &nbsp;·&nbsp; " + dot(alt.parking,"parking") + " " + alt.parking;
-  panel.appendChild(modeRow);
-
-  panel.style.display = "";
-
-  // ── Switch preference question ──
-  var switchWrap = document.createElement("div");
-  switchWrap.className = "switch-question";
-  var modeChain = buildModes(alt).join(" → ");
-  var yesText = "Yes, I would take the Metro option";
-  var noText  = "No, I would stick with my current journey";
-  switchWrap.innerHTML =
-    '<div class="switch-q-title">💬 Given this scenario, would you switch to the Metro option' +
-    ' <span class="switch-chain">(' + modeChain + ')</span>' +
-    ' instead of your current journey?</div>' +
-    '<div class="switch-options">' +
-      '<label class="switch-label" id="switch-yes-label">' +
-        '<input type="radio" name="switchPref" value="yes" id="switch-yes"> ' +
-        yesText +
-      '</label>' +
-      '<label class="switch-label" id="switch-no-label">' +
-        '<input type="radio" name="switchPref" value="no" id="switch-no"> ' +
-        noText +
-      '</label>' +
-    '</div>';
-  panel.appendChild(switchWrap);
-
-  // Style selected option on click
-  switchWrap.querySelectorAll("input[name='switchPref']").forEach(function(r) {
-    r.addEventListener("change", function() {
-      switchWrap.querySelectorAll(".switch-label").forEach(function(l) {
-        l.classList.remove("switch-selected-yes","switch-selected-no");
-      });
-      if(r.value === "yes") document.getElementById("switch-yes-label").classList.add("switch-selected-yes");
-      else                  document.getElementById("switch-no-label").classList.add("switch-selected-no");
+  var mr=document.createElement("div"); mr.className="confirm-modes";
+  mr.innerHTML="<strong>Mode chain:</strong> <span class='mode-chain'>"+buildModes(alt).join(" → ")+"</span>"
+    +" &nbsp;·&nbsp; "+dot(alt.safety,"safety")+" "+alt.safety.split("(")[0].trim()
+    +" &nbsp;·&nbsp; "+dot(alt.traffic,"traffic")+" "+alt.traffic.split("(")[0].trim()
+    +" &nbsp;·&nbsp; "+dot(alt.parking,"parking")+" "+alt.parking;
+  panel.appendChild(mr);
+  // Switch preference
+  var sw=document.createElement("div"); sw.className="switch-question";
+  var chain=buildModes(alt).join(" → ");
+  sw.innerHTML='<div class="switch-q-title">💬 Given this scenario, would you switch to the Metro option <span class="switch-chain">('+chain+')</span> instead of your current journey?</div>'
+    +'<div class="switch-options">'
+    +'<label class="switch-label" id="switch-yes-label"><input type="radio" name="switchPref" value="yes" id="switch-yes"> Yes, I would take the Metro option</label>'
+    +'<label class="switch-label" id="switch-no-label"><input type="radio" name="switchPref" value="no" id="switch-no"> No, I would stick with my current journey</label>'
+    +'</div>';
+  panel.appendChild(sw);
+  sw.querySelectorAll("input[name='switchPref']").forEach(function(r){
+    r.addEventListener("change", function(){
+      sw.querySelectorAll(".switch-label").forEach(function(l){ l.classList.remove("switch-selected-yes","switch-selected-no"); });
+      if(r.value==="yes") document.getElementById("switch-yes-label").classList.add("switch-selected-yes");
+      else                document.getElementById("switch-no-label").classList.add("switch-selected-no");
     });
   });
-
-  state.awaitingSwitch = true;
-
-  // Swap button to Continue
-  $("nextBtn").textContent = state.currentScenarioIndex < blockToScenarios[state.currentBlock].length - 1
-    ? "Next Scenario →"
-    : "Finish Survey →";
+  state.awaitingSwitch=true;
+  panel.style.display="";
+  $("nextBtn").textContent = state.currentScenarioIndex < blockToScenarios[state.currentBlock].length-1
+    ? "Next Scenario →" : "Finish Survey →";
 }
 
-$("btn-back-block").addEventListener("click", function() { showScreen("screen-block"); });
+$("btn-back-scenario").addEventListener("click", function(){
+  // Reset any pending confirm/switch state
+  state.awaitingConfirm = false;
+  state.awaitingSwitch  = false;
+  state.lastChosenAlt   = null;
+  $("confirmPanel").style.display = "none";
+  $("nextBtn").textContent = "Submit Choice →";
 
-$("nextBtn").addEventListener("click", function() {
-  // Phase 1: choice not yet submitted — validate & show confirm
-  if(!state.awaitingConfirm) {
-    var radios = document.querySelectorAll("input[name='choice']");
-    var selected = null;
-    radios.forEach(function(r) { if(r.checked) selected = r.value; });
-    if(!selected) { alert("Please select one option (A, B, C or D)."); return; }
+  if(state.currentScenarioIndex <= 0){
+    // On the first scenario — go back to block selector
+    showScreen("screen-block");
+  } else {
+    // Go back one scenario, also remove the last saved choice
+    state.currentBlockChoices.pop();
+    state.currentScenarioIndex--;
+    state.currentScenarioNum = blockToScenarios[state.currentBlock][state.currentScenarioIndex];
+    loadScenario(state.currentScenarioNum);
+  }
+});
 
-    var scNum = state.currentScenarioNum;
-    var sc = null;
-    for(var si=0;si<scenarios.length;si++){ if(scenarios[si].scenario===scNum){ sc=scenarios[si]; break; } }
-
-    state.currentBlockChoices.push({ scenario: scNum, choice: selected });
-    state.awaitingConfirm = true;
-    state.lastChosenAlt   = selected;
-    showChoiceConfirm(sc, selected);
+$("nextBtn").addEventListener("click", function(){
+  if(!state.awaitingConfirm){
+    var sel=null;
+    document.querySelectorAll("input[name='choice']").forEach(function(r){ if(r.checked) sel=r.value; });
+    if(!sel){ alert("Please select one option (A, B, C or D)."); return; }
+    var sc=null;
+    for(var i=0;i<scenarios.length;i++){ if(scenarios[i].scenario===state.currentScenarioNum){sc=scenarios[i];break;} }
+    state.currentBlockChoices.push({scenario:state.currentScenarioNum, choice:sel});
+    state.awaitingConfirm=true; state.lastChosenAlt=sel;
+    showChoiceConfirm(sc, sel);
     return;
   }
-
-  // Phase 2: user has seen confirm — validate switch answer then advance
-  if(state.awaitingSwitch) {
-    var swRadios = document.querySelectorAll("input[name='switchPref']");
-    var swVal = null;
-    swRadios.forEach(function(r){ if(r.checked) swVal = r.value; });
-    if(!swVal) { alert("Please answer whether you would switch to the Metro option."); return; }
-    // Save switch preference on the last choice entry
-    var lastChoice = state.currentBlockChoices[state.currentBlockChoices.length - 1];
-    if(lastChoice) lastChoice.switchPref = swVal;
-    state.awaitingSwitch = false;
+  if(state.awaitingSwitch){
+    var swVal=null;
+    document.querySelectorAll("input[name='switchPref']").forEach(function(r){ if(r.checked) swVal=r.value; });
+    if(!swVal){ alert("Please answer whether you would switch to the Metro option."); return; }
+    var last=state.currentBlockChoices[state.currentBlockChoices.length-1];
+    if(last) last.switchPref=swVal;
+    state.awaitingSwitch=false;
   }
-
-  state.awaitingConfirm = false;
-  state.lastChosenAlt   = null;
-
-  var list = blockToScenarios[state.currentBlock];
-  if(state.currentScenarioIndex < list.length - 1) {
+  state.awaitingConfirm=false; state.lastChosenAlt=null;
+  var list=blockToScenarios[state.currentBlock];
+  if(state.currentScenarioIndex < list.length-1){
     state.currentScenarioIndex++;
-    state.currentScenarioNum = list[state.currentScenarioIndex];
+    state.currentScenarioNum=list[state.currentScenarioIndex];
     loadScenario(state.currentScenarioNum);
   } else {
     buildLatentQuestions();
@@ -990,282 +1031,179 @@ $("nextBtn").addEventListener("click", function() {
 });
 
 // ── SCREEN 6: LATENT + DEMOGRAPHICS ──────────────────────────────
-function buildLatentQuestions() {
-  var container = $("latent-questions");
-  container.innerHTML = "";
-  LATENT_QS.forEach(function(q, i) {
-    var div = document.createElement("div");
-    div.className = "question-item";
-    var span = document.createElement("span");
-    span.className = "question-text";
-    span.textContent = (i+1) + ". " + q;
-    div.appendChild(span);
-    var scale = document.createElement("div");
-    scale.className = "likert-scale";
-    [1,2,3,4,5].forEach(function(v) {
-      var lbl = document.createElement("label");
-      var inp = document.createElement("input");
-      inp.type  = "radio";
-      inp.name  = "q" + (i+1);
-      inp.value = v;
-      lbl.appendChild(inp);
-      lbl.appendChild(document.createTextNode(v));
-      scale.appendChild(lbl);
+function buildLatentQuestions(){
+  var c=$("latent-questions"); c.innerHTML="";
+  LATENT_QS.forEach(function(q,i){
+    var div=document.createElement("div"); div.className="question-item";
+    var sp=document.createElement("span"); sp.className="question-text"; sp.textContent=(i+1)+". "+q; div.appendChild(sp);
+    var sc=document.createElement("div"); sc.className="likert-scale";
+    [1,2,3,4,5].forEach(function(v){
+      var lbl=document.createElement("label");
+      var inp=document.createElement("input"); inp.type="radio"; inp.name="q"+(i+1); inp.value=v;
+      lbl.appendChild(inp); lbl.appendChild(document.createTextNode(v)); sc.appendChild(lbl);
     });
-    div.appendChild(scale);
-    container.appendChild(div);
+    div.appendChild(sc); c.appendChild(div);
   });
 }
 
-$("submitBtn").addEventListener("click", function() {
-  var errDiv = $("submit-error");
-  if(errDiv) errDiv.style.display = "none";
-
-  function showErr(msg) {
-    var e = $("submit-error");
-    if(e){ e.textContent = "⚠ " + msg; e.style.display = "block"; e.scrollIntoView({behavior:"smooth",block:"center"}); }
-    else { alert(msg); }
-  }
-
+$("submitBtn").addEventListener("click", function(){
+  var errDiv=$("submit-error");
+  if(errDiv) errDiv.style.display="none";
+  function showErr(msg){ var e=$("submit-error"); if(e){e.textContent="⚠ "+msg;e.style.display="block";e.scrollIntoView({behavior:"smooth",block:"center"});}else{alert(msg);} }
   try {
-    // 1. Validate demographics
-    var reqFields = ["age_group","gender","occupation","education","income","license","hh_size"];
-    for(var fi = 0; fi < reqFields.length; fi++) {
-      var fname = reqFields[fi];
-      var el = document.querySelector("[name='" + fname + "']");
-      if(!el || !el.value) { showErr("Please select your " + fname.replace(/_/g," ")); return; }
+    // Validate demographics
+    var req=["age_group","gender","occupation","education","income","license","hh_size"];
+    for(var fi=0;fi<req.length;fi++){
+      var el=document.querySelector("[name='"+req[fi]+"']");
+      if(!el||!el.value){showErr("Please select your "+req[fi].replace(/_/g," "));return;}
     }
-
-    // 2. Validate latent questions
-    var latent = {};
-    var latentContainer = $("latent-questions");
-    if(latentContainer && latentContainer.children.length > 0) {
-      for(var qi = 1; qi <= 9; qi++) {
-        var qChecked = null;
-        var qRadios  = latentContainer.querySelectorAll("input[name='q" + qi + "']");
-        for(var ri = 0; ri < qRadios.length; ri++) {
-          if(qRadios[ri].checked){ qChecked = qRadios[ri].value; break; }
-        }
-        if(!qChecked){ showErr("Please answer attitude statement " + qi + "."); return; }
-        latent["q" + qi] = qChecked;
+    // Validate latent
+    var latent={};
+    var lc=$("latent-questions");
+    if(lc && lc.children.length>0){
+      for(var qi=1;qi<=9;qi++){
+        var qc=null;
+        var qr=lc.querySelectorAll("input[name='q"+qi+"']");
+        for(var ri=0;ri<qr.length;ri++){ if(qr[ri].checked){qc=qr[ri].value;break;} }
+        if(!qc){showErr("Please answer attitude statement "+qi+".");return;}
+        latent["q"+qi]=qc;
       }
     }
-
-    // 3. Collect demographics
-    var demo = {
-      age_group:  document.querySelector("[name='age_group']").value,
-      gender:     document.querySelector("[name='gender']").value,
-      occupation: document.querySelector("[name='occupation']").value,
-      education:  document.querySelector("[name='education']").value,
-      income:     document.querySelector("[name='income']").value,
-      license:    document.querySelector("[name='license']").value,
-      hh_size:    document.querySelector("[name='hh_size']").value,
-      vehicles:   "",
+    // Demographics
+    var demo={
+      age_group: document.querySelector("[name='age_group']").value,
+      gender:    document.querySelector("[name='gender']").value,
+      occupation:document.querySelector("[name='occupation']").value,
+      education: document.querySelector("[name='education']").value,
+      income:    document.querySelector("[name='income']").value,
+      license:   document.querySelector("[name='license']").value,
+      hh_size:   document.querySelector("[name='hh_size']").value,
+      vehicles:  "",
     };
-    var vChecked = document.querySelectorAll("input[name='vehicles']:checked");
-    var vVals = [];
-    for(var vi = 0; vi < vChecked.length; vi++) vVals.push(vChecked[vi].value);
-    demo.vehicles = vVals.join("; ");
-
-    // 4. Collect scenario choices + switch preferences
-    var choices = {};
-    for(var ci = 0; ci < state.currentBlockChoices.length; ci++) {
-      var ch = state.currentBlockChoices[ci];
-      choices["sc" + ch.scenario + "_choice"] = ch.choice;
-      choices["sc" + ch.scenario + "_switch"] = ch.switchPref !== undefined ? ch.switchPref : "";
+    var vc=document.querySelectorAll("input[name='vehicles']:checked"), vv=[];
+    for(var vi=0;vi<vc.length;vi++) vv.push(vc[vi].value);
+    demo.vehicles=vv.join("; ");
+    // Choices
+    var choices={};
+    for(var ci=0;ci<state.currentBlockChoices.length;ci++){
+      var ch=state.currentBlockChoices[ci];
+      choices["sc"+ch.scenario+"_choice"]=ch.choice;
+      choices["sc"+ch.scenario+"_switch"]=ch.switchPref!==undefined?ch.switchPref:"";
     }
-
-    // 5. Build survey row
-    var surveyRow = {
-      block:        state.currentBlock || "",
+    // Build row — tracker modes saved too
+    var modeStr = state.lastSession ? state.lastSession.modeList.join("; ") : "";
+    var row={
+      block:        state.currentBlock||"",
       timestamp:    new Date().toISOString(),
-      user:         state.userName || "",
-      tracker_time: state.trackerTotals ? state.trackerTotals.totalTime  : "",
-      tracker_cost: state.trackerTotals ? state.trackerTotals.totalCost  : "",
-      tracker_co2:  state.trackerTotals ? state.trackerTotals.totalCO2   : "",
-      tracker_cal:  state.trackerTotals ? state.trackerTotals.totalCal   : "",
-      tracker_dist: state.trackerTotals ? state.trackerTotals.totalDist  : "",
+      user:         state.userName||"",
+      trip_purpose: state.tripPurpose||"",
+      trip_modes:   modeStr,
+      tracker_time: state.trackerTotals?state.trackerTotals.totalTime:"",
+      tracker_cost: state.trackerTotals?state.trackerTotals.totalCost:"",
+      tracker_co2:  state.trackerTotals?state.trackerTotals.totalCO2:"",
+      tracker_cal:  state.trackerTotals?state.trackerTotals.totalCal:"",
+      tracker_dist: state.trackerTotals?state.trackerTotals.totalDist:"",
     };
-    // merge choices, latent, demographics
-    var i, k, keys;
-    keys = Object.keys(choices); for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=choices[k]; }
-    keys = Object.keys(latent);  for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=latent[k]; }
-    keys = Object.keys(demo);    for(i=0;i<keys.length;i++){ k=keys[i]; surveyRow[k]=demo[k]; }
-
-    // 6. Save survey response to localStorage only (no auto-download)
-    var existing = [];
-    try { existing = JSON.parse(localStorage.getItem(SURVEY_KEY) || "[]"); } catch(e2) { existing = []; }
-    existing.push(surveyRow);
-    localStorage.setItem(SURVEY_KEY, JSON.stringify(existing));
-
-    // Show thank-you screen instead of reloading
-    showThankyou(existing.length);
-
-  } catch(err) {
-    showErr("Unexpected error: " + err.message);
-    console.error("Submit error:", err);
-  }
+    var k, keys;
+    keys=Object.keys(choices); for(var i=0;i<keys.length;i++){k=keys[i];row[k]=choices[k];}
+    keys=Object.keys(latent);  for(var i=0;i<keys.length;i++){k=keys[i];row[k]=latent[k];}
+    keys=Object.keys(demo);    for(var i=0;i<keys.length;i++){k=keys[i];row[k]=demo[k];}
+    // Save
+    var ex=[];
+    try{ex=JSON.parse(localStorage.getItem(SURVEY_KEY)||"[]");}catch(e2){ex=[];}
+    ex.push(row);
+    localStorage.setItem(SURVEY_KEY, JSON.stringify(ex));
+    showThankyou(ex.length);
+  } catch(err){ showErr("Unexpected error: "+err.message); console.error(err); }
 });
 
-$("exportAllBtn").addEventListener("click", function() {
-  var trackerSessions = loadTrackerSessions();
-  var surveyRows      = [];
-  try { surveyRows = JSON.parse(localStorage.getItem(SURVEY_KEY) || "[]"); } catch(e) { surveyRows = []; }
-  if(!trackerSessions.length && !surveyRows.length) { alert("No data saved yet."); return; }
-  downloadUnifiedCSV(trackerSessions, surveyRows);
+$("exportAllBtn").addEventListener("click", function(){
+  var ts=loadTrackerSessions(), sr=[];
+  try{sr=JSON.parse(localStorage.getItem(SURVEY_KEY)||"[]");}catch(e){sr=[];}
+  if(!ts.length&&!sr.length){alert("No data saved yet.");return;}
+  downloadUnifiedCSV(ts,sr);
 });
 
-function showThankyou(totalResponses) {
-  showScreen("screen-thankyou");
-  var el = $("thankyou-count");
-  if(el) el.textContent = totalResponses;
-}
+function showThankyou(n){ showScreen("screen-thankyou"); var e=$("thankyou-count"); if(e) e.textContent=n; }
 
-$("btn-download-now").addEventListener("click", function() {
-  var trackerSessions = loadTrackerSessions();
-  var surveyRows = [];
-  try { surveyRows = JSON.parse(localStorage.getItem(SURVEY_KEY) || "[]"); } catch(e) { surveyRows = []; }
-  downloadUnifiedCSV(trackerSessions, surveyRows);
+$("btn-download-now").addEventListener("click", function(){
+  var ts=loadTrackerSessions(), sr=[];
+  try{sr=JSON.parse(localStorage.getItem(SURVEY_KEY)||"[]");}catch(e){sr=[];}
+  downloadUnifiedCSV(ts,sr);
 });
-
-$("btn-done-new").addEventListener("click", function() {
-  nameInput.value = "";
-  btnStart.disabled = true;
-  state = {
-    userName:"", segments:[], lastSession:null, trackerTotals:null,
-    currentBlock:null, currentScenarioIndex:-1, currentScenarioNum:null,
-    currentBlockChoices:[], awaitingConfirm:false, lastChosenAlt:null, awaitingSwitch:false,
-  };
+$("btn-done-new").addEventListener("click", function(){
+  nameInput.value=""; btnStart.disabled=true;
+  state={userName:"",tripPurpose:"",segments:[],lastSession:null,trackerTotals:null,
+    currentBlock:null,currentScenarioIndex:-1,currentScenarioNum:null,
+    currentBlockChoices:[],awaitingConfirm:false,lastChosenAlt:null,awaitingSwitch:false};
   showScreen("screen-welcome");
 });
 
 // ── DATA / DOWNLOAD ───────────────────────────────────────────────
-function loadTrackerSessions() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
-}
-function saveTrackerSession(session) {
-  try {
-    var all = loadTrackerSessions().concat([session]);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch(e) {}
+function loadTrackerSessions(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||[];}catch(e){return[];} }
+function saveTrackerSession(s){
+  try{ var all=loadTrackerSessions().concat([s]); localStorage.setItem(STORAGE_KEY,JSON.stringify(all)); }catch(e){}
 }
 
-// Single CSV with two sheets simulated as two sections
-function downloadUnifiedCSV(trackerSessions, surveyRows) {
-  var lines = [];
-
-  // ── SECTION 1: TRAVEL TRACKER LOG ──
+function downloadUnifiedCSV(trackerSessions, surveyRows){
+  var lines=[];
   lines.push('"=== TRAVEL TRACKER LOG ==="');
-  lines.push('"User","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
-
-  trackerSessions.forEach(function(s, si) {
-    s.segments.forEach(function(seg, i) {
-      var iF = (i === 0);
-      var iL = (i === s.segments.length - 1);
-      var row = [
-        iF ? s.userName      : "",
-        iF ? (si + 1)        : "",
-        iF ? s.timestamp     : "",
-        i + 1,
-        seg.label,
-        seg.speedKmh,
-        seg.minutes,
-        seg.waitMin,
-        seg.totalMin,
-        seg.distKm,
-        seg.cost,
-        seg.co2,
-        seg.calories,
-        iL ? s.totalTime      : "",
-        iL ? s.totalDist      : "",
-        iL ? s.totalCost      : "",
-        iL ? s.totalCO2       : "",
-        iL ? s.totalCalories  : "",
+  lines.push('"User","Trip Purpose","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
+  trackerSessions.forEach(function(s,si){
+    s.segments.forEach(function(seg,i){
+      var iF=(i===0), iL=(i===s.segments.length-1);
+      var row=[
+        iF?s.userName:"",
+        iF?(s.tripPurpose||""):"",
+        iF?(si+1):"",
+        iF?s.timestamp:"",
+        i+1, seg.label, seg.speedKmh, seg.minutes, seg.waitMin, seg.totalMin, seg.distKm, seg.cost, seg.co2, seg.calories,
+        iL?s.totalTime:"", iL?s.totalDist:"", iL?s.totalCost:"", iL?s.totalCO2:"", iL?s.totalCalories:"",
       ];
-      lines.push(row.map(function(v){ return '"' + String(v !== undefined ? v : "").replace(/"/g,'""') + '"'; }).join(","));
-    });
-    lines.push(""); // blank row between sessions
-  });
-
-  // ── SECTION 2: SURVEY RESPONSES ──
-  lines.push("");
-  lines.push('"=== SURVEY RESPONSES ==="');
-
-  if(surveyRows.length > 0) {
-    // Build header from all possible keys across all rows
-    var headerSet = [];
-    surveyRows.forEach(function(r) {
-      Object.keys(r).forEach(function(k) {
-        if(headerSet.indexOf(k) === -1) headerSet.push(k);
-      });
-    });
-    lines.push(headerSet.map(function(h){ return '"' + String(h).replace(/"/g,'""') + '"'; }).join(","));
-    surveyRows.forEach(function(r) {
-      var row = headerSet.map(function(h) {
-        var v = r[h] !== undefined && r[h] !== null ? r[h] : "";
-        return '"' + String(v).replace(/"/g,'""') + '"';
-      });
-      lines.push(row.join(","));
-    });
-  } else {
-    lines.push('"No survey responses yet"');
-  }
-
-  triggerDownload(lines.join("\r\n"), "ecocommute_data_" + Date.now() + ".csv", "text/csv;charset=utf-8;");
-}
-
-// Tracker-only re-download (for re-download button on results screen)
-function downloadTrackerCSV(sessions) {
-  var lines = [];
-  lines.push('"User","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
-  sessions.forEach(function(s, si) {
-    s.segments.forEach(function(seg, i) {
-      var iF = (i === 0);
-      var iL = (i === s.segments.length - 1);
-      var row = [
-        iF ? s.userName      : "",
-        iF ? (si + 1)        : "",
-        iF ? s.timestamp     : "",
-        i + 1,
-        seg.label,
-        seg.speedKmh,
-        seg.minutes,
-        seg.waitMin,
-        seg.totalMin,
-        seg.distKm,
-        seg.cost,
-        seg.co2,
-        seg.calories,
-        iL ? s.totalTime      : "",
-        iL ? s.totalDist      : "",
-        iL ? s.totalCost      : "",
-        iL ? s.totalCO2       : "",
-        iL ? s.totalCalories  : "",
-      ];
-      lines.push(row.map(function(v){ return '"' + String(v !== undefined ? v : "").replace(/"/g,'""') + '"'; }).join(","));
+      lines.push(row.map(function(v){return '"'+String(v!==undefined?v:"").replace(/"/g,'""')+'"';}).join(","));
     });
     lines.push("");
   });
-  triggerDownload(lines.join("\r\n"), "ecocommute_tracker_" + Date.now() + ".csv", "text/csv;charset=utf-8;");
+  lines.push(""); lines.push('"=== SURVEY RESPONSES ==="');
+  if(surveyRows.length>0){
+    var hset=[];
+    surveyRows.forEach(function(r){ Object.keys(r).forEach(function(k){if(hset.indexOf(k)===-1)hset.push(k);}); });
+    lines.push(hset.map(function(h){return'"'+String(h).replace(/"/g,'""')+'"';}).join(","));
+    surveyRows.forEach(function(r){
+      var row=hset.map(function(h){ var v=r[h]!==undefined&&r[h]!==null?r[h]:""; return'"'+String(v).replace(/"/g,'""')+'"'; });
+      lines.push(row.join(","));
+    });
+  } else { lines.push('"No survey responses yet"'); }
+  triggerDownload(lines.join("\r\n"),"ecocommute_data_"+Date.now()+".csv","text/csv;charset=utf-8;");
 }
 
-function triggerDownload(content, filename, mimeType) {
-  try {
-    var blob = new Blob([content], {type: mimeType});
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement("a");
-    a.href = url; a.download = filename; a.style.display = "none";
+function downloadTrackerCSV(sessions){
+  var lines=[];
+  lines.push('"User","Trip Purpose","Session #","Date & Time","Seg #","Mode","Speed (km/h)","Travel (min)","Wait (min)","Seg Total (min)","Distance (km)","Cost (Rs)","CO2 (g)","Calories","Total Time (min)","Total Dist (km)","Total Cost (Rs)","Total CO2 (g)","Total Cal (kcal)"');
+  sessions.forEach(function(s,si){
+    s.segments.forEach(function(seg,i){
+      var iF=(i===0), iL=(i===s.segments.length-1);
+      var row=[iF?s.userName:"",iF?(s.tripPurpose||""):"",iF?(si+1):"",iF?s.timestamp:"",
+        i+1,seg.label,seg.speedKmh,seg.minutes,seg.waitMin,seg.totalMin,seg.distKm,seg.cost,seg.co2,seg.calories,
+        iL?s.totalTime:"",iL?s.totalDist:"",iL?s.totalCost:"",iL?s.totalCO2:"",iL?s.totalCalories:""];
+      lines.push(row.map(function(v){return'"'+String(v!==undefined?v:"").replace(/"/g,'""')+'"';}).join(","));
+    });
+    lines.push("");
+  });
+  triggerDownload(lines.join("\r\n"),"ecocommute_tracker_"+Date.now()+".csv","text/csv;charset=utf-8;");
+}
+
+function triggerDownload(content, filename, mimeType){
+  try{
+    var blob=new Blob([content],{type:mimeType});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a"); a.href=url; a.download=filename; a.style.display="none";
     document.body.appendChild(a); a.click();
-    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
-  } catch(err) {
-    alert("Download failed: " + err.message);
-    console.error(err);
-  }
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},300);
+  }catch(err){alert("Download failed: "+err.message);console.error(err);}
 }
 
-// Init
 showScreen("screen-welcome");
-
 </script>
 </body>
 </html>
